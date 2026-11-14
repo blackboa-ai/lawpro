@@ -15,7 +15,7 @@
   --secondary: 210 40% 96.5%;
   --secondary-foreground: 222.8 47.4% 11.2%;
   --muted: 210 40% 96%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted-foreground: 15.4% 46.9%;
   --accent: 210 40% 96.5%;
   --accent-foreground: 222.8 47.4% 11.2%;
   --destructive: 0 84.2% 60.2%;
@@ -27,8 +27,8 @@
 
 .sqrt {
   min-height: 100vh;
-  background-color: theme('colors.background');
-  color: theme('colors.foreground');
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 html {
@@ -36,8 +36,8 @@ html {
 }
 
 body {
-  color: theme('colors.foreground');
-  background-color: theme('colors.background');
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
