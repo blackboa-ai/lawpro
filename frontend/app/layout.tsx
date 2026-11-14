@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { AuthProvider } from '@/context/AuthContext'
 
 export const metadata: Metadata = {
   title: 'LawPro - Hearing Date Tracker',
@@ -15,16 +16,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-sm border-b">
-          <div className="container mx-auto px-4 py-4">
-            <Link href="/" className="text-xl font-bold text-blue-600">
-              LawPro
-            </Link>
-          </div>
-        </nav>
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
+        <AuthProvider>
+          <nav className="bg-white shadow-sm border-b">
+            <div className="container mx-auto px-4 py-4">
+              <Link href="/" className="text-xl font-bold text-blue-600">
+                LawPro
+              </Link>
+            </div>
+          </nav>
+          <main className="container mx-auto px-4 py-8">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   )

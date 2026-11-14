@@ -26,53 +26,43 @@ def upgrade() -> None:
         sa.Column('password_hash', sa.String(255), nullable=False),
         sa.Column('full_name', sa.String(255), nullable=True),
         sa.Column('role', sa.String(20), server_default='advocate', nullable=False),
-        sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text("'1970-01-01 00:00:00'"), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text("'1970-01-01 00:00:00'"), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('email'),
     )
     
-    # Create indexes for users table
+    # Create users table indexes
     op.create_index('idx_users_email', 'users', ['email'], unique=True)
     
-    # Create cases table
+    # Create cases table - using snake_case column names to match API schema
     op.create_table(
         'cases',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('title', sa.String(255), nullable=False),
-        sa.Column('case_number', sa.String(100), nullable=False),
-        sa.Column('court', sa.String(150), nullable=False),
-        sa.Column('next_hearing', sa.Date(), nullable=False),
-        sa.Column('notes', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('case_title', sa.String(255), nullable=False),
+        sa.Column('case_number', sa.String(100), nullable=True),
+        sa.Column('court_name', sa.String(150), nullable=True),
+        sa.Column('next_hearing_date', sa.Date(), nullable=True),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('status', sa.String(20), server_default='pending', nullable=False),
+        sa.Column('client_name', sa.String(255), nullable=True),
+        sa.Column('case_type', sa.String(100), nullable=True),
+        sa.Column('filing_date', sa.Date(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text("'1970-01-01 00:00:00'"), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text("'1970-01-01 00:00:00'"), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
     )
     
-    # Create indexes for cases table
+    # Create cases table indexes
     op.create_index('idx_cases_user_id', 'cases', ['user_id'])
-    op.create_index('idx_cases_next_hearing', 'cases', ['next_hearing'])
-    op.create_index('idx_cases_court', 'cases', ['court'])
-    
-    # Create limitations table (optional, for advanced feature)
-    op.create_table(
-        'limitations',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('case_id', sa.Integer(), nullable=False),
-        sa.Column('section_number', sa.String(50), nullable=False),
-        sa.Column('start_date', sa.Date(), nullable=False),
-        sa.Column('deadline_date', sa.Date(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-        sa.ForeignKeyConstraint(['case_id'], ['cases.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-    )
+    op.create_index('idx_cases_next_hearing_date', 'cases', ['next_hearing_date'])
+    op.create_index('idx_cases_status', 'cases', ['status'])
 
 
 def downgrade() -> None:
     """Downgrade the database schema."""
-    op.drop_table('limitations')
     op.drop_table('cases')
     op.drop_table('users')

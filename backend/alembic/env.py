@@ -35,36 +35,33 @@ if context.config.config_file_name is not None:
         }
     )
 
-# Import models after path setup
-from app.core.config import settings
-from app.models.user import Base
+# For migrations, we need a minimal database URL that handles asyncpg -> psycopg2 conversion
+# This avoids needing SECRET_KEY and FRONTEND_HOST for migrations
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool, QueuePool
 
-# this is the Alembic Config object
-config = context.config
+# Get DATABASE_URL directly from environment for migrations
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///./lawpro.db')
 
-# Interpret the config file for Python logging
-if context.config.config_file_name is not None:
-    dictConfig(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "formatters": {
-                "generic": {
-                    "format": "%(levelname)-5.5s [%(name)s] %(message)s",
-                }
-            },
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                    "formatter": "generic",
-                    "stream": "ext://sys.stdout",
-                }
-            },
-            "loggers": {
-                "sqlalchemy.engine": {"level": "INFO", "handlers": ["console"], "propagate": False},
-            },
-        }
-    )
+# Handle async driver URLs for PostgreSQL - convert asyncpg to syncpsycopg
+# Also handle plain postgresql:// URLs and Neon URLs with sslmode
+# for compatibility with synchronous session usage in FastAPI routes
+if DATABASE_URL.startswith("postgresql+asyncpg"):
+    # Convert async URL to sync URL
+    DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg", "postgresql+psycopg2", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    # Plain postgresql:// URL - convert to use psycopg2
+    # Preserve any query parameters (like sslmode=require for Neon)
+    if '?' in DATABASE_URL:
+        url_part, query_part = DATABASE_URL.split('?', 1)
+        DATABASE_URL = "postgresql+psycopg2://" + url_part[len("postgresql://"):] + "?" + query_part
+    else:
+        DATABASE_URL = "postgresql+psycopg2://" + DATABASE_URL[len("postgresql://"):]
+
+# Import models after path setup - use the shared Base from models package
+from app.models import Base
+
 
 # target_metadata for 'autogenerate' support
 target_metadata = Base.metadata
@@ -78,9 +75,8 @@ def run_migrations_offline() -> None:
     on this line too.
 
     """
-    url = str(settings.DATABASE_URL)
     context.configure(
-        url=url,
+        url=DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -98,8 +94,8 @@ def run_migrations_online() -> None:
 
     """
     connectable = engine_from_config(
-        {"sqlalchemy.url": str(settings.DATABASE_URL)},
-        poolclass=pool.NullPool,
+        {"sqlalchemy.url": DATABASE_URL},
+        poolclass=NullPool,
     )
 
     with connectable.connect() as connection:

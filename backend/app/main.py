@@ -14,10 +14,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS
+# Configure CORS - FRONTEND_HOST is required for production
+# In development, FRONTEND_HOST can be comma-separated for multiple origins
+origins = [url.strip() for url in settings.FRONTEND_HOST.split(',')] if settings.FRONTEND_HOST else []
+if not origins:
+    origins = ["http://localhost:3000", "http://localhost:8000"]  # Default development origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_HOST] if settings.FRONTEND_HOST else ["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

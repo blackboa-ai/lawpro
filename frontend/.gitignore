@@ -1,0 +1,28 @@
+# Environment files
+.env.local
+.env.*.local
+# .env.example is kept as a template
+
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+.out/
+build/
+
+# Production
+/.next/
+/vercel/
+/.vercel/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

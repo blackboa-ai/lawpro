@@ -1,18 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: [],
-          optimizer: false,
-        },
-      },
-    },
-  },
   images: {
     domains: ['localhost'],
   },
+  // Fix workspace root warning when multiple lockfiles exist
+  outputFileTracingRoot: __dirname,
 }
 
 module.exports = nextConfig

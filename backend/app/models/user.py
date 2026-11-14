@@ -3,10 +3,11 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Enum
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Enum, text
 from sqlalchemy.orm import declarative_base
 
-Base = declarative_base()
+# Import Base from package __init__ to share with Case model
+from app.models import Base
 
 
 class RoleType(str):
@@ -25,10 +26,10 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
-    role = Column(String(20), default=RoleType.ADVOCATE, nullable=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    role = Column(String(20), server_default=text("'advocate'"), nullable=False)
+    is_active = Column(Boolean(), server_default=text("true"), nullable=False)
+    created_at = Column(DateTime(), server_default=text("'1970-01-01 00:00:00'"), nullable=False)
+    updated_at = Column(DateTime(), server_default=text("'1970-01-01 00:00:00'"), nullable=False)
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email})>"

@@ -1,0 +1,8 @@
+# Render PostgreSQL Database Configuration for LawPro
+# Create a new PostgreSQL database on Render
+
+databases:
+  - name: lawpro-db
+    # Use the free tier: 0-50 MB storage
+    # No credit card required for free PostgreSQL databases
+    plan: free
