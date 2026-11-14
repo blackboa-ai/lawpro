@@ -9,7 +9,7 @@ from sqlalchemy.orm import declarative_base
 Base = declarative_base()
 
 
-class Role(str):
+class RoleType(str):
     """User role enumeration."""
     ADVOCATE = "advocate"
     CLERK = "clerk"
@@ -25,7 +25,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
-    role = Column(String(20), default=Role.ADVOCATE, nullable=False)
+    role = Column(String(20), default=RoleType.ADVOCATE, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
