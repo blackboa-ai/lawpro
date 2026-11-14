@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+*.tgz
+
+# Build outputs
+.next/
+.out/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.pyc
+__pycache__/
+*.py/cython/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Deployment
+.vercel
+.render/
+.cypress/
+
+# Testing
+coverage/
+*.test.ts
+*.test.tsx
+*.spec.ts

@@ -1,0 +1,1 @@
+"""LawPro Backend Application"""
