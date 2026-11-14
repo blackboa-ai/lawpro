@@ -46,3 +46,8 @@ coverage/
 *.test.ts
 *.test.tsx
 *.spec.ts
+
+# Temporary scripts
+*.sh
+*.bat
+upload_via_api.py

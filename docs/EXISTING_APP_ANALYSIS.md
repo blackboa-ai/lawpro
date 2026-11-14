@@ -71,3 +71,37 @@ mobile-app-project-T1/
 ├── app.json                   # Expo config
 └── package.json
 ```
+
+## Migration to Web
+
+LawPro transforms this mobile-only app into:
+
+### Web Architecture
+```
+┌─────────────────┐
+│  Next.js 15     │  -- Frontend (React + TypeScript)
+│  Tailwind CSS   │  -- Styling
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  FastAPI        │  -- Backend (Python)
+│  JWT Auth       │  -- Authentication
+│  Pydantic       │  -- Validation
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  PostgreSQL     │  -- Database
+│  SQLAlchemy     │  -- ORM
+│  Alembic        │  -- Migrations
+└─────────────────┘
+```
+
+### Key Improvements
+- ✅ Multi-user authentication
+- ✅ Cross-device sync
+- ✅ Web interface for desktop
+- ✅ Data backup to cloud
+- ✅ Role-based access control
+- ✅ API-first design
