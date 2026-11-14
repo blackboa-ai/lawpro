@@ -2,12 +2,14 @@
 
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
     """Base user schema with common fields."""
 
+    model_config = ConfigDict(from_attributes=True)
+    
     email: EmailStr
     full_name: Optional[str] = None
 
@@ -25,13 +27,12 @@ class UserRead(UserBase):
     role: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
-
 
 class UserUpdate(BaseModel):
     """Schema for updating user data."""
 
+    model_config = ConfigDict(from_attributes=True)
+    
     full_name: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
