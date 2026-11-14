@@ -2,9 +2,20 @@
 
 A web-based hearing date tracker for Indian lawyers, evolved from the CaseDiary mobile application.
 
+[![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
+[![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-bluegreen?logo=fastapi)](https://fastapi.tiangolo.com)
+
+## Version
+
+**v0.1.0** - Phase 1: Project Setup Complete
+
 ## Status
 
-MVP development in progress. Zero-budget deployment using free tiers.
+✅ **Phase 1 Complete** - Project structure and documentation ready
+
+**Phase 2 In Progress** - Authentication & Database setup
 
 ## Quick Links
 
