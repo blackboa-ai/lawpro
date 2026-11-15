@@ -26,6 +26,10 @@ declare module 'lucide-react' {
   export const Settings: React.FC<IconProps>;
   export const Bell: React.FC<IconProps>;
   export const Calendar: React.FC<IconProps>;
+  export const CalendarDays: React.FC<IconProps>;
+  export const Eye: React.FC<IconProps>;
+  export const EyeOff: React.FC<IconProps>;
+  export const LoaderCircle: React.FC<IconProps>;
   export const Clock: React.FC<IconProps>;
   export const Gavel: React.FC<IconProps>;
   export const Scale: React.FC<IconProps>;
