@@ -106,7 +106,7 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     throw new Error(error.detail || 'An error occurred');
   }
   
-  return response.json();
+  return response.status === 204 ? undefined as T : response.json();
 }
 
 // Auth endpoints
@@ -144,14 +144,14 @@ export async function createCase(
     ...data,
     ...(data.next_hearing_date && { next_hearing_date: data.next_hearing_date }),
   };
-  return apiRequest<Case>('/api/v1/cases', {
+  return apiRequest<Case>('/api/v1/cases/', {
     method: 'POST',
     body: JSON.stringify(apiData),
   });
 }
 
 export async function getCases(): Promise<Case[]> {
-  return apiRequest<Case[]>('/api/v1/cases');
+  return apiRequest<Case[]>('/api/v1/cases/');
 }
 
 export async function getCase(id: number): Promise<Case> {
