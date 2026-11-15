@@ -1,9 +1,9 @@
 "use client";
 
-import Link from 'next/link'
 import { useState } from 'react'
 import { login } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { AuthFormLayout, AuthPasswordInput, AuthSubmit, authInputClass } from '../AuthForm'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -28,63 +28,42 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
-      <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight">Sign In</h1>
-      
+    <AuthFormLayout>
       {error && (
-        <div role="alert" className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-4">
+        <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
-        </div>
+        </p>
       )}
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
+
+      <form onSubmit={handleSubmit} className="space-y-4" aria-busy={loading}>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1">
+          <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-800">
             Email
           </label>
           <input
             type="email"
             id="email"
+            name="email"
             autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 min-h-12 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
-            placeholder="your@email.com"
+            className={authInputClass}
+            placeholder="you@example.com"
             required
             disabled={loading}
           />
         </div>
-        
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">
-            Password
-          </label>
-          <input
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 min-h-12 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
-            required
-            disabled={loading}
-          />
-        </div>
-        
-        <button
-          type="submit"
-          className="w-full rounded-lg min-h-12 bg-slate-900 py-2.5 font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+
+        <AuthPasswordInput
+          autoComplete="current-password"
+          value={password}
+          onChange={event => setPassword(event.target.value)}
           disabled={loading}
-        >
-          {loading ? 'Signing in...' : 'Sign In'}
-        </button>
+        />
+        <AuthSubmit loading={loading} label="Sign in" pendingLabel="Signing in…" />
       </form>
-      
-      <div className="mt-4 text-center">
-        <Link href="/register" className="inline-flex min-h-11 items-center justify-center text-sm font-medium text-slate-700 underline underline-offset-4">
-          Don't have an account? Register
-        </Link>
-      </div>
-    </div>
+    </AuthFormLayout>
   )
 }

@@ -13,6 +13,11 @@ LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearin
 
 ## Version history
 
+### v2.2.2 - Sign-in and registration refresh
+
+- Refreshed sign-in and registration with a compact mobile layout and a two-column desktop layout.
+- Added a password visibility toggle and an inline password-length hint on registration.
+
 ### v2.2 — Calendar and CSV exports
 
 - Confirm the case and date before downloading its next hearing as an all-day calendar event (`.ics`). Import it into your calendar and set any reminders there. Download again if the hearing date changes.
@@ -84,6 +89,8 @@ npm run dev
 Open [localhost:3000](http://localhost:3000). For local testing, set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` to `http://localhost:8000`. Run `npm run build` from the root to check the production build.
 
 ## Deployment
+
+See [Restoring LawPro v2.2](docs/ROLLBACK.md) for the previous release and its recovery steps.
 
 The web app uses Vercel for Next.js, Render for FastAPI, and Neon for PostgreSQL. Configure the public backend URL on Vercel with `NEXT_PUBLIC_API_URL`. In Render, set `FRONTEND_HOST` to the frontend origin and store `DATABASE_URL` and `SECRET_KEY` as environment variables. Keep credentials and local database files out of Git.
 
