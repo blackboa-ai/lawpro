@@ -19,11 +19,9 @@ export default function DashboardPage() {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newCaseTitle, setNewCaseTitle] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [hearingDate, setHearingDate] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [editingCase, setEditingCase] = useState<Case | null>(null);
@@ -78,19 +76,28 @@ export default function DashboardPage() {
 
   const handleCreateCase = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCaseTitle.trim() || creating) return;
+    if (creating) return;
+    const form = new FormData(e.currentTarget as HTMLFormElement);
+    const value = (name: string) => String(form.get(name) ?? '').trim();
+    const title = value('case_title');
+    if (!title) {
+      setCreateError('Enter a case title.');
+      return;
+    }
+    const hearingDate = value('next_hearing_date');
     setCreating(true);
     setCreateError('');
     
     try {
       const newCase = await createCase({
-        case_title: newCaseTitle.trim(),
+        case_title: title,
+        case_number: value('case_number') || null,
+        court_name: value('court_name') || null,
+        description: value('description') || null,
         ...(hearingDate && { next_hearing_date: hearingDate }),
       });
       setCases(current => [newCase, ...current]);
       setShowCreateModal(false);
-      setNewCaseTitle('');
-      setHearingDate('');
       clearFilters();
       fetchData();
     } catch (err) {
@@ -267,27 +274,37 @@ export default function DashboardPage() {
                 <label htmlFor="new-case-title" className="block text-sm font-medium mb-1">Case title</label>
                 <input
                   id="new-case-title"
+                  name="case_title"
                   autoFocus
                   type="text"
-                  value={newCaseTitle}
-                  onChange={(e) => setNewCaseTitle(e.target.value)}
+                  maxLength={255}
                   className="min-h-11 w-full px-3 py-2 text-base border rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter case title"
                   disabled={creating}
                   required
                 />
               </div>
+              <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-medium">Case number <span className="font-normal text-slate-500">(optional)</span>
+                  <input name="case_number" maxLength={100} disabled={creating} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base" />
+                </label>
+                <label className="block text-sm font-medium">Court <span className="font-normal text-slate-500">(optional)</span>
+                  <input name="court_name" maxLength={150} disabled={creating} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base" />
+                </label>
+              </div>
               <div className="mb-5">
                 <label htmlFor="new-case-hearing" className="mb-1 block text-sm font-medium">Next hearing date <span className="font-normal text-slate-500">(optional)</span></label>
                 <input
                   id="new-case-hearing"
+                  name="next_hearing_date"
                   type="date"
-                  value={hearingDate}
-                  onChange={event => setHearingDate(event.target.value)}
                   disabled={creating}
                   className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
                 />
               </div>
+              <label className="mb-5 block text-sm font-medium">Case notes <span className="font-normal text-slate-500">(optional)</span>
+                <textarea name="description" rows={3} maxLength={10000} disabled={creating} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base" />
+              </label>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
                 <button
                   type="button"
