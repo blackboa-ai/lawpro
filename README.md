@@ -7,13 +7,18 @@ LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearin
 ## What you can do
 
 - Register, sign in, and manage your own cases.
-- Create cases with an optional next hearing date and update or delete cases from the dashboard.
+- Create cases with optional case numbers, courts, hearing dates, and notes. Edit or delete cases from the dashboard.
 - Search by case title, number, or court, and filter by case status.
 - Open **Upcoming hearings** to see **Today**, **Next 7 days**, or **All upcoming**. The seven-day view includes today.
 
 ## Version history
 
-### v2.1 — In development
+### v2.1.1 — More details when creating a case
+
+- Add a case number, court, and case notes when creating a case. These fields and the next hearing date are optional.
+- Case notes entered during creation can be updated later in Edit case.
+
+### v2.1 — Case editing and hearing history
 
 - Edit a case's title, reference number, court, next hearing date, and case notes from the dashboard.
 - Preserve the previous hearing date and optional hearing notes when a date is changed or cleared.
