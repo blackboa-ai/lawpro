@@ -5,6 +5,7 @@ import { getDashboardStats, getCases, createCase, deleteCase, updateCase } from 
 import { useAuth } from '@/context/AuthContext';
 import { Case, DashboardStats } from '@/types';
 import { LogOut, Plus } from 'lucide-react';
+import { CaseEditor } from './CaseEditor';
 
 const hearingRanges = [
   { label: 'Today', days: 1 },
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const [hearingDate, setHearingDate] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [editingCase, setEditingCase] = useState<Case | null>(null);
 
   const [upcomingOnly, setUpcomingOnly] = useState(false);
   const [hearingRange, setHearingRange] = useState<number>(0);
@@ -245,6 +247,7 @@ export default function DashboardPage() {
               <CaseCard
                 key={caseItem.id}
                 case={caseItem}
+                onEdit={() => setEditingCase(caseItem)}
                 onUpdate={handleStatusChange}
                 onDelete={handleDeleteCase}
               />
@@ -306,6 +309,17 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      {editingCase && (
+        <CaseEditor
+          caseItem={editingCase}
+          onClose={() => setEditingCase(null)}
+          onSaved={updated => {
+            setCases(current => current.map(item => item.id === updated.id ? updated : item));
+            setEditingCase(null);
+            fetchData();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -327,8 +341,9 @@ function StatCard({ title, value, color }: { title: string; value: number; color
   );
 }
 
-function CaseCard({ case: caseItem, onUpdate, onDelete }: {
+function CaseCard({ case: caseItem, onEdit, onUpdate, onDelete }: {
   case: Case;
+  onEdit: () => void;
   onUpdate: (id: number, status: 'pending' | 'ongoing' | 'completed' | 'dismissed') => void;
   onDelete: (id: number) => void;
 }) {
@@ -360,7 +375,14 @@ function CaseCard({ case: caseItem, onUpdate, onDelete }: {
           {caseItem.status}
         </span>
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50"
+        >
+          Edit case
+        </button>
         <select
           aria-label={`Status for ${caseItem.case_title}`}
           value={caseItem.status}
