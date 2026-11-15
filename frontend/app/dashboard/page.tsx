@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getDashboardStats, getCases, createCase, deleteCase, updateCase } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Case, DashboardStats } from '@/types';
-import { LogOut, Plus } from 'lucide-react';
+import { Calendar, ChevronDown, Edit, LogOut, Plus, Trash2 } from 'lucide-react';
 import { CaseEditor } from './CaseEditor';
+import { casesCsv, downloadFile, hearingCalendar } from '@/lib/caseExports';
 
 const hearingRanges = [
   { label: 'Today', days: 1 },
@@ -181,6 +182,16 @@ export default function DashboardPage() {
       <div id="case-list" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-5 sm:gap-3">
           <h2 className="text-xl font-semibold tracking-tight">Your cases</h2>
+          <div className="flex flex-wrap items-center gap-2">
+          {visibleCases.length > 0 && (
+            <button
+              type="button"
+              onClick={() => downloadFile(casesCsv(visibleCases), `lawpro-cases-${today}.csv`, 'text/csv;charset=utf-8')}
+              className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50"
+            >
+              {hasFilters ? 'Export filtered CSV' : 'Export CSV'}
+            </button>
+          )}
           <button
             onClick={() => {
               setCreateError('');
@@ -190,6 +201,7 @@ export default function DashboardPage() {
           >
             <Plus aria-hidden={true} size={16} /> New case
           </button>
+          </div>
         </div>
 
         {cases.length > 0 && (
@@ -365,59 +377,116 @@ function CaseCard({ case: caseItem, onEdit, onUpdate, onDelete }: {
   onDelete: (id: number) => void;
 }) {
   const statusColors = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    ongoing: 'bg-blue-100 text-blue-800',
-    completed: 'bg-green-100 text-green-800',
-    dismissed: 'bg-gray-100 text-gray-800',
+    pending: 'bg-amber-50 text-amber-900 ring-amber-200',
+    ongoing: 'bg-blue-50 text-blue-900 ring-blue-200',
+    completed: 'bg-emerald-50 text-emerald-900 ring-emerald-200',
+    dismissed: 'bg-slate-100 text-slate-700 ring-slate-200',
   };
+  const hearingDate = caseItem.next_hearing_date;
+  const calendarDialog = useRef<HTMLDialogElement>(null);
+  const formattedHearingDate = hearingDate && new Date(hearingDate).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+  });
+  const actionClass = 'inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2';
 
   return (
-    <div className="rounded-xl border border-slate-200 p-3 sm:p-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <div>
         <div className="min-w-0 wrap-break-word">
           <h3 className="font-semibold">{caseItem.case_title}</h3>
           {caseItem.case_number && <p className="text-sm text-slate-600">Case no. {caseItem.case_number}</p>}
           {caseItem.court_name && (
             <p className="text-sm text-gray-600">{caseItem.court_name}</p>
           )}
-          {caseItem.next_hearing_date && (
-            <p className="text-xs text-gray-500">
-              Next hearing: {new Date(caseItem.next_hearing_date).toLocaleDateString('en-IN', {
-                day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-              })}
+          {hearingDate && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+              <Calendar size={14} aria-hidden={true} className="shrink-0" />
+              Next hearing: {formattedHearingDate}
             </p>
           )}
         </div>
-        <span className={`px-2 py-1 text-xs rounded-full ${statusColors[caseItem.status as keyof typeof statusColors]}`}>
-          {caseItem.status}
-        </span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
+        <div className="relative inline-flex items-center">
+          <select
+            aria-label={`Status for ${caseItem.case_title}`}
+            value={caseItem.status}
+            onChange={e => onUpdate(caseItem.id, e.target.value as Case['status'])}
+            className={`min-h-11 appearance-none rounded-xl py-2 pl-3 pr-8 text-base font-medium ring-1 ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-sm ${statusColors[caseItem.status]}`}
+          >
+            <option value="pending">Pending</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="completed">Completed</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+          <ChevronDown size={14} aria-hidden={true} className="pointer-events-none absolute right-2.5 text-slate-600" />
+        </div>
         <button
           type="button"
           onClick={onEdit}
-          className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50"
+          aria-label="Edit case"
+          className={`${actionClass} text-slate-700 hover:bg-slate-100`}
         >
-          Edit case
+          <Edit size={16} aria-hidden={true} />
+          Edit
         </button>
-        <select
-          aria-label={`Status for ${caseItem.case_title}`}
-          value={caseItem.status}
-          onChange={(e) => onUpdate(caseItem.id, e.target.value as 'pending' | 'ongoing' | 'completed' | 'dismissed')}
-          className="min-h-11 rounded border px-2 py-1 text-base sm:text-sm"
-        >
-          <option value="pending">Pending</option>
-          <option value="ongoing">Ongoing</option>
-          <option value="completed">Completed</option>
-          <option value="dismissed">Dismissed</option>
-        </select>
+        {hearingDate && (
+          <button
+            type="button"
+            onClick={() => calendarDialog.current?.showModal()}
+            aria-label="Add to calendar"
+            className={`${actionClass} bg-violet-50 text-violet-900 hover:bg-violet-100`}
+          >
+            <Calendar size={16} aria-hidden={true} />
+            Calendar
+          </button>
+        )}
         <button
+          type="button"
           onClick={() => onDelete(caseItem.id)}
-          className="min-h-11 px-2 text-sm text-red-600 hover:text-red-800"
+          aria-label="Delete case"
+          title="Delete case"
+          className={`${actionClass} ml-auto min-w-11 justify-center text-slate-500 hover:bg-red-50 hover:text-red-700`}
         >
-          Delete
+          <Trash2 size={16} aria-hidden={true} />
         </button>
       </div>
+      {hearingDate && (
+        <dialog
+          ref={calendarDialog}
+          aria-labelledby={`calendar-title-${caseItem.id}`}
+          aria-describedby={`calendar-details-${caseItem.id}`}
+          className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-2xl bg-white p-5 text-slate-900 shadow-xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm"
+        >
+          <div className="mb-3 inline-flex rounded-xl bg-violet-50 p-2.5 text-violet-800">
+            <Calendar size={20} aria-hidden={true} />
+          </div>
+          <h4 id={`calendar-title-${caseItem.id}`} className="text-lg font-semibold">Add hearing to calendar?</h4>
+          <p id={`calendar-details-${caseItem.id}`} className="mt-2 text-sm leading-relaxed text-slate-600">
+            <strong className="wrap-anywhere text-slate-900">{caseItem.case_title}</strong>
+            <br />
+            {formattedHearingDate} · All day
+          </p>
+          <p className="mt-3 text-sm text-slate-600">Download the event file to open or import in your calendar app.</p>
+          <form method="dialog" className="mt-5 grid grid-cols-2 gap-2">
+            <button autoFocus className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-medium hover:bg-slate-50">Cancel</button>
+            <button
+              type="button"
+              onClick={() => {
+                downloadFile(
+                  hearingCalendar({ ...caseItem, next_hearing_date: hearingDate }),
+                  `lawpro-hearing-${caseItem.id}-${hearingDate}.ics`,
+                  'text/calendar;charset=utf-8',
+                );
+                calendarDialog.current?.close();
+              }}
+              className="min-h-11 rounded-xl bg-violet-700 px-3 text-sm font-semibold text-white hover:bg-violet-800"
+            >
+              Add to calendar
+            </button>
+          </form>
+        </dialog>
+      )}
     </div>
   );
 }
