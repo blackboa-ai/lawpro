@@ -13,6 +13,12 @@ LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearin
 
 ## Version history
 
+### v2.2 — Calendar and CSV exports
+
+- Confirm the case and date before downloading its next hearing as an all-day calendar event (`.ics`). Import it into your calendar and set any reminders there. Download again if the hearing date changes.
+- Export the visible case list as a UTF-8 CSV. Search and filters determine which cases are included.
+- Updated case cards with a compact hearing date badge, color-coded status control, and actions that wrap on smaller screens.
+
 ### v2.1.1 — More details when creating a case
 
 - Add a case number, court, and case notes when creating a case. These fields and the next hearing date are optional.
@@ -83,5 +89,4 @@ The web app uses Vercel for Next.js, Render for FastAPI, and Neon for PostgreSQL
 
 ## Roadmap
 
-- **v2.2** - Download hearing events for a calendar and export case lists as CSV.
 - **v3.0** - Reserved for a larger feature.
