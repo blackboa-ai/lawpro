@@ -110,8 +110,8 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 }
 
 // Auth endpoints
-export async function register(data: { email: string; password: string; full_name?: string }): Promise<AuthResponse> {
-  return apiRequest<AuthResponse>('/api/v1/auth/register', {
+export async function register(data: { email: string; password: string; full_name?: string }): Promise<User> {
+  return apiRequest<User>('/api/v1/auth/register', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -121,7 +121,7 @@ export async function login(data: { email: string; password: string }): Promise<
   const response = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(data).toString(),
+    body: new URLSearchParams({ username: data.email, password: data.password }).toString(),
   });
   
   if (!response.ok) {
