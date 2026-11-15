@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { login, setToken } from '@/lib/api'
+import { login } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 
 export default function LoginPage() {
@@ -11,7 +10,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
   const { login: authLogin } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,9 +19,7 @@ export default function LoginPage() {
     
     try {
       const data = await login({ email, password })
-      setToken(data.access_token)
       authLogin(data.access_token)
-      router.push('/')
     } catch (err: any) {
       setError(err.message || 'Invalid credentials')
     } finally {
@@ -32,11 +28,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
+    <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
+      <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight">Sign In</h1>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-4">
+        <div role="alert" className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-4">
           {error}
         </div>
       )}
@@ -49,9 +45,10 @@ export default function LoginPage() {
           <input
             type="email"
             id="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-slate-300 min-h-12 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
             placeholder="your@email.com"
             required
             disabled={loading}
@@ -65,9 +62,10 @@ export default function LoginPage() {
           <input
             type="password"
             id="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-slate-300 min-h-12 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700"
             required
             disabled={loading}
           />
@@ -75,7 +73,7 @@ export default function LoginPage() {
         
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-lg min-h-12 bg-slate-900 py-2.5 font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
           disabled={loading}
         >
           {loading ? 'Signing in...' : 'Sign In'}
@@ -83,7 +81,7 @@ export default function LoginPage() {
       </form>
       
       <div className="mt-4 text-center">
-        <Link href="/register" className="text-blue-600 hover:underline">
+        <Link href="/register" className="inline-flex min-h-11 items-center justify-center text-sm font-medium text-slate-700 underline underline-offset-4">
           Don't have an account? Register
         </Link>
       </div>
