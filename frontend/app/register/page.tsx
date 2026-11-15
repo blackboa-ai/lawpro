@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { register, setToken } from '@/lib/api'
+import { register, login, setToken } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 
 export default function RegisterPage() {
@@ -21,7 +21,8 @@ export default function RegisterPage() {
     setLoading(true)
     
     try {
-      const data = await register({ email, password, full_name: fullName })
+      await register({ email, password, full_name: fullName })
+      const data = await login({ email, password })
       setToken(data.access_token)
       authLogin(data.access_token)
       router.push('/')
