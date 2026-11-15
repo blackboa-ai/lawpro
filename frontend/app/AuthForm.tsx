@@ -16,8 +16,7 @@ export function AuthFormLayout({ isRegister = false, children }: {
       aria-labelledby="auth-title"
       className="mx-auto max-w-md overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm md:grid md:max-w-4xl md:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] md:rounded-[2rem]"
     >
-      <div className="relative isolate overflow-hidden bg-[#17234a] px-6 py-5 text-white sm:px-8 md:flex md:flex-col md:justify-center md:p-10">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 -z-10 h-72 w-72 rounded-full bg-indigo-500/35 blur-3xl" />
+      <div className="bg-[#17234a] bg-[radial-gradient(ellipse_at_top_right,#6366f159,transparent_70%)] px-6 py-5 text-white sm:px-8 md:flex md:flex-col md:justify-center md:p-10">
         <div className="flex items-center gap-3 md:block">
           <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-amber-200 md:mb-6 md:size-12">
             <CalendarDays size={21} aria-hidden={true} />

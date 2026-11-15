@@ -13,6 +13,10 @@ LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearin
 
 ## Version history
 
+### Unreleased
+
+- Fix the rounded banner corners on the mobile sign-in and registration cards.
+
 ### v2.2.2 - Sign-in and registration refresh
 
 - Refreshed sign-in and registration with a compact mobile layout and a two-column desktop layout.
