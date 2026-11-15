@@ -41,7 +41,7 @@ export default function DashboardPage() {
     if (!newCaseTitle.trim()) return;
     
     try {
-      const newCase = await createCase({ case_title: newCaseTitle, next_hearing_date: '' });
+      const newCase = await createCase({ case_title: newCaseTitle.trim() });
       setCases([newCase, ...cases]);
       setShowCreateModal(false);
       setNewCaseTitle('');
