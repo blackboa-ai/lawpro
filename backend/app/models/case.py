@@ -54,3 +54,16 @@ class Case(Base):
     # Timestamps
     created_at = Column(DateTime, server_default=text("'1970-01-01 00:00:00'"), nullable=False)
     updated_at = Column(DateTime, server_default=text("'1970-01-01 00:00:00'"), nullable=False)
+
+
+class HearingHistory(Base):
+    """A previous hearing date and the change that replaced it."""
+
+    __tablename__ = "hearing_history"
+
+    id = Column(Integer, primary_key=True)
+    case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    hearing_date = Column(Date, nullable=False)
+    next_hearing_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    recorded_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"), nullable=False)

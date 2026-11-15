@@ -13,6 +13,14 @@ LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearin
 
 ## Version history
 
+### v2.1 — In development
+
+- Edit a case's title, reference number, court, next hearing date, and case notes from the dashboard.
+- Preserve the previous hearing date and optional hearing notes when a date is changed or cleared.
+- Apply Alembic revision `20261115_hearing_history` to the target database before deploying the v2.1 backend.
+
+The live v2 baseline was released as `v0.2.0`. Future updates in this series use the `v2.x` naming scheme.
+
 ### v0.2.0 — Mobile dashboard and hearing filters
 
 - Added case search, status filters, matching results counts, and a clear-filters action.
@@ -70,5 +78,5 @@ The web app uses Vercel for Next.js, Render for FastAPI, and Neon for PostgreSQL
 
 ## Roadmap
 
-- **v0.3.0** — Edit case details and preserve a hearing history when dates change.
-- **v0.4.0** — Download hearing events for a calendar and export case lists as CSV.
+- **v2.2** - Download hearing events for a calendar and export case lists as CSV.
+- **v3.0** - Reserved for a larger feature.

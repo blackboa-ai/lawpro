@@ -1,5 +1,7 @@
 /** API client for LawPro backend */
 
+import type { CaseUpdate, HearingHistoryEntry } from '@/types';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface AuthResponse {
@@ -160,12 +162,16 @@ export async function getCase(id: number): Promise<Case> {
 
 export async function updateCase(
   id: number,
-  data: Partial<Omit<Case, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'next_hearing_date' | 'status'>> & { status?: 'pending' | 'ongoing' | 'completed' | 'dismissed' }
+  data: CaseUpdate
 ): Promise<Case> {
   return apiRequest<Case>(`/api/v1/cases/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
+}
+
+export async function getHearingHistory(id: number): Promise<HearingHistoryEntry[]> {
+  return apiRequest<HearingHistoryEntry[]>(`/api/v1/cases/${id}/hearing-history`);
 }
 
 export async function deleteCase(id: number): Promise<void> {

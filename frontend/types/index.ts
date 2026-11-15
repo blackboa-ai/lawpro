@@ -47,7 +47,17 @@ export interface CaseUpdate {
   description?: string | null;
   filing_date?: string | null;
   next_hearing_date?: string | null;
-  status?: string;
+  status?: CaseStatus;
+  hearing_notes?: string;
+  expected_hearing_date?: string | null;
+}
+
+export interface HearingHistoryEntry {
+  id: number;
+  hearing_date: string;
+  next_hearing_date: string | null;
+  notes: string | null;
+  recorded_at: string;
 }
 
 export interface DashboardStats {

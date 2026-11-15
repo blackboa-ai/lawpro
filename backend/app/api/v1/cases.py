@@ -8,8 +8,9 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models.case import Case, CaseStatus
+from app.models.case import Case, CaseStatus, HearingHistory
 from app.schemas import CaseCreate, CaseRead, CaseUpdate, DashboardStats
+from app.schemas.case import HearingHistoryRead
 from app.api.v1.auth import get_current_user
 
 router = APIRouter()
@@ -26,7 +27,7 @@ def _apply_case_updates(case: Case, update_data: dict) -> None:
     }
     
     for field, value in update_data.items():
-        if value is None:
+        if value is None and field in {"case_title", "status"}:
             continue
         # Map schema field names to column names
         actual_field = field_mappings.get(field, field)
@@ -160,6 +161,7 @@ async def update_case(
         select(Case)
         .where(Case.id == case_id)
         .where(Case.user_id == current_user.id)
+        .with_for_update()
     )
     case = result.scalar_one_or_none()
 
@@ -168,12 +170,41 @@ async def update_case(
 
     # Apply updates with field name mappings
     update_data = case_in.model_dump(exclude_unset=True)
+    hearing_notes = (update_data.pop("hearing_notes", None) or "").strip() or None
+    previous_date = case.next_hearing_date
+    expected_date = update_data.pop("expected_hearing_date", previous_date)
+    if "next_hearing_date" in update_data and expected_date != previous_date:
+        raise HTTPException(status_code=409, detail="The hearing date changed. Refresh the dashboard before saving.")
+    date_changed = "next_hearing_date" in update_data and update_data["next_hearing_date"] != previous_date
+    if hearing_notes and not (date_changed and previous_date):
+        raise HTTPException(status_code=422, detail="Change or clear the current hearing date to save hearing notes.")
+    if date_changed and previous_date:
+        db.add(HearingHistory(
+            case_id=case.id,
+            hearing_date=previous_date,
+            next_hearing_date=update_data["next_hearing_date"],
+            notes=hearing_notes,
+        ))
     _apply_case_updates(case, update_data)
 
     db.commit()
     db.refresh(case)
 
     return case
+
+
+@router.get("/{case_id}/hearing-history", response_model=List[HearingHistoryRead])
+async def get_hearing_history(
+    case_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> Any:
+    case = await get_case(case_id, db, current_user)
+    return db.scalars(
+        select(HearingHistory)
+        .where(HearingHistory.case_id == case.id)
+        .order_by(HearingHistory.id.desc())
+    ).all()
 
 
 @router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)

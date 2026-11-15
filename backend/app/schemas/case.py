@@ -33,15 +33,27 @@ class CaseUpdate(BaseModel):
         populate_by_name=True
     )
 
-    case_title: Optional[str] = Field(None, min_length=1)
+    case_title: Optional[str] = Field(None, min_length=1, max_length=255)
     case_number: Optional[str] = Field(None, max_length=100)
-    court_name: Optional[str] = Field(None, max_length=255)
+    court_name: Optional[str] = Field(None, max_length=150)
     client_name: Optional[str] = Field(None, max_length=255)
     case_type: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = Field(None, max_length=10000)
     filing_date: Optional[date] = Field(None)
     next_hearing_date: Optional[date] = Field(None)
     status: Optional[str] = Field(None)
+    hearing_notes: Optional[str] = Field(None, max_length=10000)
+    expected_hearing_date: Optional[date] = None
+
+
+class HearingHistoryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    hearing_date: date
+    next_hearing_date: Optional[date]
+    notes: Optional[str]
+    recorded_at: datetime
 
 
 class CaseRead(BaseModel):
