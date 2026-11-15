@@ -1,203 +1,74 @@
 # LawPro
 
-A web-based hearing date tracker for Indian lawyers, evolved from the CaseDiary mobile application.
+LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearing dates.
 
-[![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
-[![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-bluegreen?logo=fastapi)](https://fastapi.tiangolo.com)
+[Open LawPro](https://lawpro-five.vercel.app) · [Live API documentation](https://lawpro-ba28.onrender.com/docs) · [API reference](docs/API.md)
 
-## Version
+## What you can do
 
-**v0.1.0** - Phase 1: Case Management V1 Complete
+- Register, sign in, and manage your own cases.
+- Create cases with an optional next hearing date and update or delete cases from the dashboard.
+- Search by case title, number, or court, and filter by case status.
+- Open **Upcoming hearings** to see **Today**, **Next 7 days**, or **All upcoming**. The seven-day view includes today.
 
-## Status
+## Version history
 
-✅ **Backend Complete** - Authentication & Case Management API ready
-✅ **Frontend Complete** - Login, Register, Dashboard, Case CRUD ready
-✅ **Tests Ready** - Comprehensive test suites for auth and cases
-✅ **Deployment Ready** - Configuration files prepared
+### v0.2.0 — Mobile dashboard and hearing filters
 
-## Quick Links
+- Added case search, status filters, matching results counts, and a clear-filters action.
+- Added hearing filters for today, the next seven days, and all upcoming hearings.
+- Added an optional hearing date to the New case form and case numbers to case cards when available.
+- Redesigned the landing page, authentication screens, and dashboard with a compact layout and larger tap targets for phones.
+- Centered the New case dialog, blurred the background, and made the form scroll when screen space is tight.
+- Sent users directly to the dashboard after successful sign-in or registration.
 
-- [Deployment Guide](docs/DEPLOYMENT.md) - Step-by-step deployment instructions
-- [API Documentation](docs/API.md) - Full API reference with examples
+### v0.1.0 — Initial web release
 
-## Architecture
+- Added account registration and sign-in, a case dashboard, and case creation, status updates, and deletion.
+- Deployed the Next.js frontend on Vercel and the FastAPI backend on Render.
+- Initialized the Neon PostgreSQL database using Alembic migrations.
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│     Browser     │────▶│  Next.js        │────▶│  FastAPI        │
-│                 │     │  (Frontend)     │     │  (Backend)      │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                      │
-                                                      ▼
-                                             ┌─────────────────┐
-                                             │  PostgreSQL     │
-                                             │  (Database)     │
-                                             └─────────────────┘
-```
+Add a section under **Version history** for each release, newest first. Keep planned work in the roadmap until it ships.
 
-## Tech Stack
+## Local development
 
-### Frontend
-- **Next.js 15** (App Router)
-- **TypeScript**
-- **Tailwind CSS 4**
-- **Lucide React** (Icons)
+Use Node.js and npm for the frontend, Python 3.12 for the backend, and a disposable development database for any migration work.
 
-### Backend
-- **FastAPI 0.115**
-- **Python 3.14**
-- **SQLAlchemy 2.0**
-- **PostgreSQL**
-- **JWT Authentication**
-- **bcrypt Password Hashing**
+### Backend (Windows PowerShell)
 
-### Infrastructure (Free Tiers)
-- **Vercel Hobby** — Frontend hosting (no credit card)
-- **Render Free** — Backend hosting (no credit card)
-- **Render PostgreSQL Free** — Database (no credit card)
+From the repository root:
 
-## Features
-
-### Authentication
-- ✅ User Registration
-- ✅ JWT Login
-- ✅ Password Hashing (bcrypt)
-- ✅ Token Validation
-- ✅ Inactive User Handling
-
-### Case Management
-- ✅ Create Cases
-- ✅ Read Cases (List, Single)
-- ✅ Update Cases
-- ✅ Delete Cases
-- ✅ User Ownership Isolation
-- ✅ Dashboard Statistics
-
-## Development
-
-### Prerequisites
-- Node.js 18+
-- Python 3.10+
-- PostgreSQL (for production use)
-
-### Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment
-cp .env.example .env
-# Edit .env with your settings
-
-# Run migrations
-alembic upgrade head
-
-# Start development server
-uvicorn app.main:app --reload
+```powershell
+Set-Location backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+$env:DATABASE_URL = 'sqlite:///./lawpro-dev.db'
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-### Frontend Setup
+Check that any existing backend configuration is suitable for development. The explicit URL above targets a separate local SQLite file. The API defaults to port 8000 and exposes interactive docs at [localhost:8000/docs](http://localhost:8000/docs).
 
-```bash
-cd frontend
+### Frontend (Windows PowerShell)
 
-# Install dependencies
-npm install
+In a second terminal, from the repository root:
 
-# Set up environment
-cp .env.example .env.local
-# Edit .env.local if needed
-
-# Start development server
+```powershell
+npm ci
+if (-not (Test-Path frontend/.env.local)) {
+  Copy-Item frontend/.env.example frontend/.env.local
+}
 npm run dev
 ```
 
-### Running Tests
-
-```bash
-# Backend tests
-cd backend
-source venv/bin/activate
-pytest tests/ -v
-
-# Frontend tests
-cd frontend
-npm test
-```
+Open [localhost:3000](http://localhost:3000). For local testing, set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` to `http://localhost:8000`. Run `npm run build` from the root to check the production build.
 
 ## Deployment
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for complete deployment instructions.
+The web app uses Vercel for Next.js, Render for FastAPI, and Neon for PostgreSQL. Configure the public backend URL on Vercel with `NEXT_PUBLIC_API_URL`. In Render, set `FRONTEND_HOST` to the frontend origin and store `DATABASE_URL` and `SECRET_KEY` as environment variables. Keep credentials and local database files out of Git.
 
-### Quick Deployment Commands
+## Roadmap
 
-```bash
-# 1. Push to GitHub
-git push origin main
-
-# 2. Create Render PostgreSQL database (via dashboard)
-# 3. Create Render Web Service (backend)
-# 4. Create Vercel Project (frontend)
-
-# 5. Run migrations on Render
-# In Render "Shell" tab:
-alembic upgrade head
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/register` | Register new user |
-| POST | `/api/v1/auth/login` | Login and get token |
-| GET | `/api/v1/auth/me` | Get current user |
-| POST | `/api/v1/cases` | Create case |
-| GET | `/api/v1/cases` | List user's cases |
-| GET | `/api/v1/cases/dashboard` | Get dashboard stats |
-| GET | `/api/v1/cases/{id}` | Get single case |
-| PUT | `/api/v1/cases/{id}` | Update case |
-| DELETE | `/api/v1/cases/{id}` | Delete case |
-| GET | `/health` | Health check |
-
-## Environment Variables
-
-### Backend (.env)
-```
-DATABASE_URL=sqlite:///./lawpro.db
-SECRET_KEY=your-secret-key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_HOST=http://localhost:8000
-FRONTEND_HOST=http://localhost:3000
-```
-
-### Frontend (.env.local)
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-## Security
-
-- Passwords hashed with bcrypt
-- JWT tokens with configurable expiration
-- User data isolated by user_id
-- CORS properly configured
-- No sensitive data in code
-
-## License
-
-Not yet chosen. All rights reserved by the author.
-
----
-*This project follows Zero-Budget Rule — ₹0 spending allowed.*
+- **v0.3.0** — Edit case details and preserve a hearing history when dates change.
+- **v0.4.0** — Download hearing events for a calendar and export case lists as CSV.

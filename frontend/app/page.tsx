@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { isAuthenticated } from '@/lib/api';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
 export default function HomePage() {
@@ -24,27 +24,27 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto text-center">
-      <h1 className="text-4xl font-bold mb-6 text-gray-900">
-        Welcome to LawPro
+    <div className="mx-auto max-w-3xl rounded-3xl bg-slate-900 px-6 py-12 text-white sm:px-12 sm:py-16">
+      <h1 className="max-w-xl text-4xl font-semibold tracking-tight sm:text-6xl">
+        Keep track of cases and hearing dates.
       </h1>
-      <p className="text-lg text-gray-600 mb-8">
-        Your professional hearing date tracker
+      <p className="mt-5 max-w-lg text-base text-slate-300 sm:text-lg">
+        LawPro gives Indian lawyers one place to see case statuses and upcoming hearings.
       </p>
       
-      <div className="space-y-4">
-        <a 
+      <div className="mt-8 flex flex-wrap gap-3">
+        <Link
           href="/login"
-          className="inline-block w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+          className="rounded-lg bg-amber-300 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-amber-200"
         >
           Sign In
-        </a>
-        <a
+        </Link>
+        <Link
           href="/register"
-          className="inline-block w-full border border-blue-600 text-blue-600 py-3 px-6 rounded-lg hover:bg-blue-50 transition-colors"
+          className="rounded-lg border border-slate-500 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
         >
           Register
-        </a>
+        </Link>
       </div>
     </div>
   );
