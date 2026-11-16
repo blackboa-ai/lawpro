@@ -42,7 +42,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool, QueuePool
 
 # Get DATABASE_URL directly from environment for migrations
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///./lawpro.db')
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL must be explicitly set before running Alembic. "
+        "Refusing to fall back to a local SQLite database."
+    )
 
 # Handle async driver URLs for PostgreSQL - convert asyncpg to syncpsycopg
 # Also handle plain postgresql:// URLs and Neon URLs with sslmode
