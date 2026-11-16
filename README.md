@@ -15,6 +15,13 @@ LawPro is a mobile-friendly web app for Indian lawyers to track cases and hearin
 
 ### Unreleased
 
+- Audit fixes: expire restored sessions, redirect on authenticated 401 responses, and show readable validation errors.
+- Validate password UTF-8 byte limits, case field lengths, and supported statuses; correct the case status enum import.
+- Fetch cases in pages of 25 with server-side search and hearing/status filters; CSV exports include all matching pages.
+- Calculate dashboard counts in one query and refresh after changes without hiding the dashboard.
+- Scope calendar event identifiers to the backend, owner, case, and hearing date.
+- Added isolated regression tests. Deploy the backend before the frontend for pagination support; no database migration is needed.
+
 - Fix the rounded banner corners on the mobile sign-in and registration cards.
 
 ### v2.2.2 - Sign-in and registration refresh

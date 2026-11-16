@@ -3,8 +3,8 @@
 from datetime import date
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -67,65 +67,52 @@ async def create_case(
 
 @router.get("/", response_model=List[CaseRead])
 async def list_cases(
+    response: Response,
+    offset: int = Query(0, ge=0),
+    limit: int | None = Query(None, ge=1, le=200),
+    search: str = "",
+    case_status: CaseStatus | None = None,
+    upcoming_from: date | None = None,
+    upcoming_before: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ) -> Any:
-    """List all cases for the authenticated user."""
-    result = db.execute(
-        select(Case)
-        .where(Case.user_id == current_user.id)
-        .order_by(Case.next_hearing_date.nulls_last(), Case.created_at.desc())
-    )
-    cases = result.scalars().all()
-
-    return cases
+    """List the user's cases, optionally filtered and paginated."""
+    conditions = [Case.user_id == current_user.id]
+    if search.strip():
+        term = search.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        conditions.append(or_(*(func.lower(column).like(f"%{term}%", escape="\\") for column in (Case.case_title, Case.case_number, Case.court_name))))
+    if case_status:
+        conditions.append(Case.status == case_status)
+    if upcoming_from:
+        conditions.append(Case.next_hearing_date >= upcoming_from)
+    if upcoming_before:
+        conditions.append(Case.next_hearing_date < upcoming_before)
+    query = select(Case).where(*conditions).order_by(Case.next_hearing_date.nulls_last(), Case.created_at.desc(), Case.id.desc())
+    if limit is not None:
+        response.headers["X-Total-Count"] = str(db.scalar(select(func.count(Case.id)).where(*conditions)))
+        response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+        query = query.offset(offset).limit(limit)
+    return db.execute(query).scalars().all()
 
 
 @router.get("/dashboard", response_model=DashboardStats)
 async def get_dashboard_stats(
+    today: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ) -> Any:
     """Get dashboard statistics for the authenticated user."""
-    # Count cases by status
-    pending_count = db.execute(
-        select(func.count(Case.id)).where(
-            and_(Case.user_id == current_user.id, Case.status == CaseStatus.PENDING)
-        )
-    ).scalar() or 0
-    
-    ongoing_count = db.execute(
-        select(func.count(Case.id)).where(
-            and_(Case.user_id == current_user.id, Case.status == CaseStatus.ONGOING)
-        )
-    ).scalar() or 0
-    
-    completed_count = db.execute(
-        select(func.count(Case.id)).where(
-            and_(Case.user_id == current_user.id, Case.status == CaseStatus.COMPLETED)
-        )
-    ).scalar() or 0
-    
-    total_count = db.execute(
-        select(func.count(Case.id)).where(Case.user_id == current_user.id)
-    ).scalar() or 0
-    
-    upcoming_count = db.execute(
-        select(func.count(Case.id)).where(
-            and_(
-                Case.user_id == current_user.id,
-                Case.next_hearing_date != None,
-                Case.next_hearing_date >= date.today()
-            )
-        )
-    ).scalar() or 0
-
+    counts = db.execute(select(
+        func.count(Case.id),
+        func.count(case((Case.status == CaseStatus.PENDING, 1))),
+        func.count(case((Case.status == CaseStatus.ONGOING, 1))),
+        func.count(case((Case.status == CaseStatus.COMPLETED, 1))),
+        func.count(case((Case.next_hearing_date >= (today or date.today()), 1))),
+    ).where(Case.user_id == current_user.id)).one()
     return DashboardStats(
-        total_cases=total_count,
-        pending_cases=pending_count,
-        ongoing_cases=ongoing_count,
-        completed_cases=completed_count,
-        upcoming_hearings=upcoming_count
+        total_cases=counts[0], pending_cases=counts[1], ongoing_cases=counts[2],
+        completed_cases=counts[3], upcoming_hearings=counts[4],
     )
 
 

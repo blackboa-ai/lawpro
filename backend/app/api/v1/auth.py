@@ -113,6 +113,8 @@ async def login(
     db: Session = Depends(get_db)
 ) -> Any:
     """Login endpoint returning JWT token."""
+    if len(form_data.password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=422, detail="Password must be at most 72 UTF-8 bytes")
     # Find user by email
     result = db.execute(
         select(User).where(User.email == form_data.username)

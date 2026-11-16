@@ -2,7 +2,7 @@
 
 import type { CaseUpdate, HearingHistoryEntry } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface AuthResponse {
   access_token: string;
@@ -61,8 +61,7 @@ export function removeToken(): void {
 
 // Helper to check if user is authenticated
 export function isAuthenticated(): boolean {
-  const token = getToken();
-  return !!token;
+  return getDecodedToken() !== null;
 }
 
 // Helper to decode JWT and get user info
@@ -72,7 +71,11 @@ export function getDecodedToken(): User | null {
   if (!token) return null;
   
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now()) {
+      removeToken();
+      return null;
+    }
     return {
       id: parseInt(payload.sub, 10),
       email: payload.email,
@@ -81,8 +84,17 @@ export function getDecodedToken(): User | null {
       is_active: payload.is_active !== false
     };
   } catch {
+    removeToken();
     return null;
   }
+}
+
+function errorMessage(detail: unknown): string {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(item => item?.msg).filter(Boolean).join('; ') || 'Invalid request';
+  }
+  return 'An error occurred';
 }
 
 // API request with auth
@@ -104,8 +116,12 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   });
   
   if (!response.ok) {
+    if (response.status === 401 && token) {
+      removeToken();
+      window.location.replace('/login');
+    }
     const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-    throw new Error(error.detail || 'An error occurred');
+    throw new Error(errorMessage(error.detail));
   }
   
   return response.status === 204 ? undefined as T : response.json();
@@ -128,7 +144,7 @@ export async function login(data: { email: string; password: string }): Promise<
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-    throw new Error(error.detail || 'An error occurred');
+    throw new Error(errorMessage(error.detail));
   }
   
   return response.json();
@@ -156,6 +172,22 @@ export async function getCases(): Promise<Case[]> {
   return apiRequest<Case[]>('/api/v1/cases/');
 }
 
+export async function getCasesPage(params: URLSearchParams): Promise<{ cases: Case[]; total: number }> {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/api/v1/cases/?${params}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    if (response.status === 401 && token) {
+      removeToken();
+      window.location.replace('/login');
+    }
+    const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
+    throw new Error(errorMessage(error.detail));
+  }
+  return { cases: await response.json(), total: Number(response.headers.get('X-Total-Count') || 0) };
+}
+
 export async function getCase(id: number): Promise<Case> {
   return apiRequest<Case>(`/api/v1/cases/${id}`);
 }
@@ -180,6 +212,6 @@ export async function deleteCase(id: number): Promise<void> {
   });
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  return apiRequest<DashboardStats>('/api/v1/cases/dashboard');
+export async function getDashboardStats(today?: string): Promise<DashboardStats> {
+  return apiRequest<DashboardStats>(`/api/v1/cases/dashboard${today ? `?today=${encodeURIComponent(today)}` : ""}`);
 }

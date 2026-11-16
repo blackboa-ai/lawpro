@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from app.models.case import CaseStatus
 
 
 class CaseCreate(BaseModel):
@@ -14,15 +15,15 @@ class CaseCreate(BaseModel):
         populate_by_name=True
     )
 
-    case_title: str = Field(..., min_length=1, description="Case title")
+    case_title: str = Field(..., min_length=1, max_length=255, description="Case title")
     case_number: Optional[str] = Field(None, max_length=100, description="Case number/reference")
-    court_name: Optional[str] = Field(None, max_length=255, description="Court name")
+    court_name: Optional[str] = Field(None, max_length=150, description="Court name")
     client_name: Optional[str] = Field(None, max_length=255, description="Client name")
     case_type: Optional[str] = Field(None, max_length=100, description="Case type (Civil, Criminal, etc.)")
     description: Optional[str] = Field(None, max_length=10000, description="Case description")
     filing_date: Optional[date] = Field(None, description="Date case was filed")
     next_hearing_date: Optional[date] = Field(None, description="Next hearing date")
-    status: Optional[str] = Field(default="pending", description="Case status")
+    status: Optional[CaseStatus] = Field(default=CaseStatus.PENDING, description="Case status")
 
 
 class CaseUpdate(BaseModel):
@@ -41,7 +42,7 @@ class CaseUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=10000)
     filing_date: Optional[date] = Field(None)
     next_hearing_date: Optional[date] = Field(None)
-    status: Optional[str] = Field(None)
+    status: Optional[CaseStatus] = Field(None)
     hearing_notes: Optional[str] = Field(None, max_length=10000)
     expected_hearing_date: Optional[date] = None
 

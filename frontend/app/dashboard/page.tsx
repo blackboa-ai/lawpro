@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getDashboardStats, getCases, createCase, deleteCase, updateCase } from '@/lib/api';
+import { getDashboardStats, getCasesPage, createCase, deleteCase, updateCase } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Case, DashboardStats } from '@/types';
 import { Calendar, ChevronDown, Edit, LogOut, Plus, Trash2 } from 'lucide-react';
@@ -22,6 +22,11 @@ export default function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const requestId = useRef(0);
+  const pageSize = 25;
   const [statusFilter, setStatusFilter] = useState('all');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -34,45 +39,94 @@ export default function DashboardPage() {
   const rangeEnd = new Date(today + 'T00:00:00Z');
   rangeEnd.setUTCDate(rangeEnd.getUTCDate() + hearingRange);
   const endDate = rangeEnd.toISOString().slice(0, 10);
-  const hasUpcomingHearing = (caseItem: Case) =>
-    Boolean(caseItem.next_hearing_date && caseItem.next_hearing_date >= today);
-  const upcomingCount = cases.filter(hasUpcomingHearing).length;
+  const upcomingCount = stats?.upcoming_hearings || 0;
   const query = search.trim().toLowerCase();
-  const visibleCases = cases.filter(caseItem =>
-    (!upcomingOnly || (hasUpcomingHearing(caseItem) &&
-      (hearingRange === 0 || caseItem.next_hearing_date! < endDate))) &&
-    (statusFilter === 'all' || caseItem.status === statusFilter) &&
-    [caseItem.case_title, caseItem.case_number, caseItem.court_name].some(
-      field => field?.toLowerCase().includes(query)
-    )
-  );
+  const visibleCases = cases;
   const hasFilters = upcomingOnly || query !== '' || statusFilter !== 'all';
 
+  const caseParams = (offset = 0) => {
+    const params = new URLSearchParams({ offset: String(offset), limit: String(pageSize) });
+    if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+    if (statusFilter !== 'all') params.set('case_status', statusFilter);
+    if (upcomingOnly) {
+      params.set('upcoming_from', today);
+      if (hearingRange) params.set('upcoming_before', endDate);
+    }
+    return params;
+  };
+
+  const exportCases = async () => {
+    try {
+      const all: Case[] = [];
+      let count = 0;
+      do {
+        const result = await getCasesPage(caseParams(all.length));
+        count = result.total;
+        all.push(...result.cases);
+        if (!result.cases.length) break;
+      } while (all.length < count);
+      downloadFile(casesCsv(all), `lawpro-cases-${today}.csv`, 'text/csv;charset=utf-8');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not export cases.');
+    }
+  };
+
   const clearFilters = () => {
+    setPage(0);
     setSearch('');
+    setDebouncedSearch('');
     setStatusFilter('all');
     setUpcomingOnly(false);
     setHearingRange(0);
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    const timer = setTimeout(() => { setPage(0); setDebouncedSearch(search); }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    fetchData(!stats);
+    return () => { requestId.current++; };
+  }, [page, debouncedSearch, statusFilter, upcomingOnly, hearingRange]);
+
+  const fetchData = async (refreshStats = false) => {
+    const request = ++requestId.current;
     try {
       const [statsData, casesData] = await Promise.all([
-        getDashboardStats(),
-        getCases()
+        refreshStats ? getDashboardStats(today) : Promise.resolve(null), getCasesPage(caseParams(page * pageSize))
       ]);
-      setStats(statsData);
-      setCases(casesData);
+      if (request !== requestId.current) return;
+      if (page > 0 && casesData.cases.length === 0) {
+        setPage(Math.max(0, Math.ceil(casesData.total / pageSize) - 1));
+        return;
+      }
+      if (statsData) setStats(statsData);
+      setError('');
+      setCases(casesData.cases);
+      setTotal(casesData.total);
     } catch (err: any) {
-      setError(err.message);
+      if (request === requestId.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (request === requestId.current) setLoading(false);
     }
+  };
+
+  const adjustStats = (before: Case | null, after: Case | null) => {
+    setStats(current => {
+      if (!current) return current;
+      const next = { ...current };
+      const apply = (item: Case, delta: number) => {
+        next.total_cases += delta;
+        if (item.status === 'pending') next.pending_cases += delta;
+        if (item.status === 'ongoing') next.ongoing_cases += delta;
+        if (item.status === 'completed') next.completed_cases += delta;
+        if (item.next_hearing_date && item.next_hearing_date >= today) next.upcoming_hearings += delta;
+      };
+      if (before) apply(before, -1);
+      if (after) apply(after, 1);
+      return next;
+    });
   };
 
   const handleCreateCase = async (e: React.FormEvent) => {
@@ -97,10 +151,11 @@ export default function DashboardPage() {
         description: value('description') || null,
         ...(hearingDate && { next_hearing_date: hearingDate }),
       });
-      setCases(current => [newCase, ...current]);
+      adjustStats(null, newCase);
       setShowCreateModal(false);
+      const filtersChanged = upcomingOnly || statusFilter !== 'all' || page !== 0 || debouncedSearch !== '' || hearingRange !== 0;
       clearFilters();
-      fetchData();
+      if (!filtersChanged) fetchData(true);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Could not create the case. Try again.');
     } finally {
@@ -112,8 +167,10 @@ export default function DashboardPage() {
     if (window.confirm('Are you sure you want to delete this case?')) {
       try {
         await deleteCase(id);
-        setCases(cases.filter(c => c.id !== id));
-        fetchData();
+        const removed = cases.find(c => c.id === id);
+        if (removed) adjustStats(removed, null);
+        setCases(current => current.filter(c => c.id !== id));
+        fetchData(true);
       } catch (err: any) {
         setError(err.message);
       }
@@ -123,8 +180,10 @@ export default function DashboardPage() {
   const handleStatusChange = async (caseId: number, newStatus: 'pending' | 'ongoing' | 'completed' | 'dismissed') => {
     try {
       const updated = await updateCase(caseId, { status: newStatus });
-      setCases(cases.map(c => c.id === caseId ? updated : c));
-      fetchData();
+      const previous = cases.find(c => c.id === caseId);
+      if (previous) adjustStats(previous, updated);
+      setCases(current => current.map(c => c.id === caseId ? updated : c));
+      fetchData(true);
     } catch (err: any) {
       setError(err.message);
     }
@@ -170,7 +229,7 @@ export default function DashboardPage() {
           type="button"
           aria-pressed={upcomingOnly}
           aria-controls="case-list"
-          onClick={() => setUpcomingOnly(current => !current)}
+          onClick={() => { setPage(0); setUpcomingOnly(current => !current); }}
           className="col-span-2 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-left text-violet-950 hover:bg-violet-100 aria-pressed:border-violet-600 aria-pressed:bg-violet-100 sm:col-span-1 sm:flex-col sm:items-start sm:justify-center sm:p-4"
         >
           <span className="text-sm font-medium">Upcoming hearings</span>
@@ -186,7 +245,7 @@ export default function DashboardPage() {
           {visibleCases.length > 0 && (
             <button
               type="button"
-              onClick={() => downloadFile(casesCsv(visibleCases), `lawpro-cases-${today}.csv`, 'text/csv;charset=utf-8')}
+              onClick={exportCases}
               className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50"
             >
               {hasFilters ? 'Export filtered CSV' : 'Export CSV'}
@@ -204,7 +263,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {cases.length > 0 && (
+        {(stats?.total_cases || 0) > 0 && (
           <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-2 sm:mb-5 sm:grid-cols-[minmax(0,1fr)_11rem] sm:gap-3">
             <label className="text-sm font-medium text-slate-700">
               Search cases
@@ -220,7 +279,7 @@ export default function DashboardPage() {
               Filter by status
               <select
                 value={statusFilter}
-                onChange={event => setStatusFilter(event.target.value)}
+                onChange={event => { setPage(0); setStatusFilter(event.target.value); }}
                 className="mt-1 block w-full rounded-lg border border-slate-300 bg-white min-h-11 px-3 py-2.5 text-base"
               >
                 <option value="all">All statuses</option>
@@ -239,7 +298,7 @@ export default function DashboardPage() {
                 key={range.days}
                 type="button"
                 aria-pressed={hearingRange === range.days}
-                onClick={() => setHearingRange(range.days)}
+                onClick={() => { setPage(0); setHearingRange(range.days); }}
                 className="min-h-11 rounded-lg border border-violet-200 px-3 text-sm font-medium text-violet-950 aria-pressed:border-violet-600 aria-pressed:bg-violet-100"
               >
                 {range.label}
@@ -249,11 +308,11 @@ export default function DashboardPage() {
         )}
         {hasFilters && (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3">
-            <p role="status" className="text-sm text-slate-600">{visibleCases.length} of {cases.length} cases</p>
+            <p role="status" className="text-sm text-slate-600">{total} of {stats?.total_cases || 0} cases</p>
             <button type="button" onClick={clearFilters} className="min-h-11 text-sm font-medium text-violet-800 underline underline-offset-4">Clear filters</button>
           </div>
         )}
-        {cases.length === 0 ? (
+        {(stats?.total_cases || 0) === 0 ? (
           <div className="flex flex-col items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center">
             <p className="font-semibold">No cases yet</p>
             <p className="mt-1 text-sm text-slate-600">Select New case to add your first case.</p>
@@ -271,6 +330,13 @@ export default function DashboardPage() {
                 onDelete={handleDeleteCase}
               />
             ))}
+          </div>
+        )}
+        {total > pageSize && (
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">Previous</button>
+            <span className="text-sm">Page {page + 1} of {Math.ceil(total / pageSize)}</span>
+            <button type="button" disabled={(page + 1) * pageSize >= total} onClick={() => setPage(page + 1)} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">Next</button>
           </div>
         )}
       </div>
@@ -343,9 +409,10 @@ export default function DashboardPage() {
           caseItem={editingCase}
           onClose={() => setEditingCase(null)}
           onSaved={updated => {
+            adjustStats(editingCase, updated);
             setCases(current => current.map(item => item.id === updated.id ? updated : item));
             setEditingCase(null);
-            fetchData();
+            fetchData(true);
           }}
         />
       )}

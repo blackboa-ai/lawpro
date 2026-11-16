@@ -1,4 +1,5 @@
 import type { Case } from '@/types';
+import { API_URL } from '@/lib/api';
 
 const csvColumns = [
   ['Case title', 'case_title'],
@@ -44,7 +45,7 @@ function foldCalendarLine(line: string): string {
   return folded;
 }
 
-type ScheduledCase = Pick<Case, 'id' | 'case_title' | 'case_number' | 'court_name'> & {
+type ScheduledCase = Pick<Case, 'id' | 'user_id' | 'case_title' | 'case_number' | 'court_name'> & {
   next_hearing_date: string;
 };
 
@@ -58,7 +59,7 @@ export function hearingCalendar(caseItem: ScheduledCase, now = new Date()): stri
     'VERSION:2.0',
     'PRODID:-//LawPro//Case Hearings//EN',
     'BEGIN:VEVENT',
-    `UID:case-${caseItem.id}-${start}@lawpro-five.vercel.app`,
+    `UID:case-${caseItem.user_id}-${caseItem.id}-${start}-${encodeURIComponent(API_URL)}@lawpro`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${start.replaceAll('-', '')}`,
     `DTEND;VALUE=DATE:${end.toISOString().slice(0, 10).replaceAll('-', '')}`,

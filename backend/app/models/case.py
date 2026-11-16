@@ -11,7 +11,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, Date, DateTime, Enum, ForeignKey, Integer, String, Text, text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import declarative_base
 
 # Import Base from package __init__ to share with User model
