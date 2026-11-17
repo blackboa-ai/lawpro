@@ -4,7 +4,9 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
+from jose import jws, jwt
+from jose.utils import base64url_encode
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -15,7 +17,7 @@ from app.models import Base
 from app.models.case import Case
 from app.models.user import User
 from app.api.v1.auth import get_current_user
-from app.core.config import settings
+from app.core.config import Settings, settings
 
 
 @pytest.fixture
@@ -160,3 +162,50 @@ def test_registered_user_authentication_and_case_isolation(client):
             invalid_headers = {"Authorization": f"Bearer {invalid_token}"}
             assert client.get("/api/v1/auth/me", headers=invalid_headers).status_code == 401
             assert client.get("/api/v1/cases/", headers=invalid_headers).status_code == 401
+
+
+def test_rejects_jwt_algorithm_confusion_and_malformed_segments(client, monkeypatch):
+    monkeypatch.delitem(app.dependency_overrides, get_current_user)
+    claims = {"sub": "1", "exp": datetime.now(timezone.utc) + timedelta(minutes=1)}
+    valid_token = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    _, payload, signature = valid_token.split(".")
+    none_header = base64url_encode(b'{"alg":"none","typ":"JWT"}').decode()
+    invalid_tokens = (
+        f"{none_header}.{payload}.",
+        jwt.encode(claims, settings.SECRET_KEY, algorithm="HS384"),
+        f"not-json.{payload}.{signature}",
+        jws.sign(b"not JSON", settings.SECRET_KEY, algorithm=settings.ALGORITHM),
+    )
+    invalid_headers = [f"Bearer {token}" for token in invalid_tokens]
+    invalid_headers.extend((f"Basic {valid_token}", "Bearer"))
+    for authorization in invalid_headers:
+        response = client.get("/api/v1/auth/me", headers={"Authorization": authorization})
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+@pytest.mark.parametrize(
+    "expiration",
+    [{}, {"exp": None}, {"exp": float("inf")}],
+    ids=["missing", "null", "overflow"],
+)
+def test_rejects_jwt_without_valid_expiration(client, monkeypatch, expiration):
+    monkeypatch.delitem(app.dependency_overrides, get_current_user)
+    token = jwt.encode(
+        {"sub": "1", **expiration}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    for path in ("/api/v1/auth/me", "/api/v1/cases/"):
+        response = client.get(path, headers=headers)
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_settings_reject_empty_jwt_signing_secret():
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings(
+            _env_file=None,
+            DATABASE_URL="postgresql://127.0.0.1:1/lawpro_test_placeholder",
+            FRONTEND_HOST="http://localhost:3000",
+            SECRET_KEY="",
+        )

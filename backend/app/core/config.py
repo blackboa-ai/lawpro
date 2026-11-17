@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     DATABASE_URL: AnyUrl
 
     # Security
-    SECRET_KEY: str = Field(..., description="Secret key for JWT signing")
+    SECRET_KEY: str = Field(..., min_length=1, description="Secret key for JWT signing")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
