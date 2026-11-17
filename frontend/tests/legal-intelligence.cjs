@@ -69,7 +69,7 @@ const fixture = Array.from({ length: 11 }, (_, index) => ({
   id: `item-${index}`,
   title: `Sample bail update ${index + 1}`,
   court_name: 'Supreme Court of India',
-  judgment_date: '2026-11-17',
+  judgment_date: index === 10 ? '2026-11-18' : '2026-11-17',
   subject_category: 'Criminal',
   source: 'Sample legal publisher',
   excerpt: 'Fixture excerpt',
@@ -92,7 +92,8 @@ async function main() {
         if (url.pathname.endsWith('/filters')) {
           return { courts: [{ code: 'sc', name: 'Supreme Court of India' }], categories: [{ name: 'Criminal' }] };
         }
-        if (url.pathname.endsWith('/item-0')) return { ...fixture[0], full_text: 'Fixture reader text' };
+        const detail = fixture.find(item => url.pathname.endsWith(`/${item.id}`));
+        if (detail) return { ...detail, full_text: 'Fixture reader text' };
         const q = url.searchParams.get('q');
         if (q === 'zero results') return { items: [], has_more: false };
         if (q && failSearch) {
@@ -141,6 +142,7 @@ async function main() {
 
   let nodes = render();
   assert.ok(hasText(nodes, 'Loading legal updates'));
+  assert.equal(nodes.filter(node => node.props.className?.includes('motion-safe:animate-pulse')).length, 3);
   await tick();
   nodes = render();
   assert.ok(hasText(nodes, fixture[0].title));
@@ -149,20 +151,33 @@ async function main() {
   const sourceLink = nodes.find(node => node.type === 'a');
   assert.equal(sourceLink.props.href, 'https://example.org/');
   assert.equal(sourceLink.props.rel, 'noopener noreferrer');
+  assert.ok(sourceLink.props.className.includes('z-10'));
+  assert.equal(sourceLink.props.onClick, undefined);
+  const detailButton = nodes.find(node => node.props['aria-label'] === `Read details for ${fixture[0].title}`);
+  assert.equal(detailButton.type, 'button');
+  assert.equal(detailButton.props['aria-haspopup'], 'dialog');
+  assert.ok(detailButton.props.className.includes('after:inset-0'));
+  assert.ok(detailButton.props.className.includes('focus-visible:after:outline'));
   assert.equal(legal.originalSourceUrl('https://user:password@example.org'), null);
   assert.equal(legal.originalSourceUrl('https://example.org/work\\file'), null);
-  const selects = nodes.filter(node => node.type === 'select');
-  selects[0].props.onChange({ target: { value: 'sc' } });
-  selects[1].props.onChange({ target: { value: 'Criminal' } });
-  editQuery(nodes, '  bail  ');
+  const chip = (nodes, label) => nodes.find(node => node.type === 'select' && node.props['aria-label'] === label);
+  for (const label of ['Court', 'Category']) {
+    assert.ok(chip(nodes, label).props.className.includes('appearance-none'));
+    assert.ok(chip(nodes, label).props.className.includes('min-h-11'));
+  }
+  chip(nodes, 'Court').props.onChange({ target: { value: 'sc' } });
+  chip(render(), 'Category').props.onChange({ target: { value: 'Criminal' } });
+  editQuery(render(), '  bail  ');
   nodes = render();
   assert.equal(nodes.filter(node => node.type === 'input' && node.props.type === 'date').length, 0);
   submit(nodes);
   assert.ok(hasText(render(), 'Loading legal updates'));
+  assert.equal(render().filter(node => node.type === 'article').length, 10);
+  assert.equal(button(render(), 'Search').props.disabled, true);
   await tick();
   nodes = render();
   assert.ok(hasText(nodes, 'The source may be warming up.'));
-  button(nodes, 'Try again').props.onClick();
+  button(nodes, 'Retry').props.onClick();
   render();
   await tick();
   nodes = render();
@@ -178,7 +193,25 @@ async function main() {
   assert.ok(hasText(nodes, fixture[10].title));
   assert.equal(button(nodes, 'Next').props.disabled, true);
   assert.equal(calls.length, requestsBeforePaging);
-  button(nodes, 'Previous').props.onClick();
+  const pageTwoCalls = calls.length;
+  nodes.find(node => node.props['aria-label'] === `Read details for ${fixture[10].title}`).props.onClick();
+  nodes = render();
+  assert.ok(hasText(nodes, 'Back to Results'));
+  await tick();
+  nodes = render();
+  nodes.find(node => node.type === 'dialog').props.onClose();
+  nodes = render();
+  assert.ok(nodes.some(node => Array.isArray(textOf(node)) && textOf(node).join('') === 'Page 2'));
+  assert.ok(hasText(nodes, fixture[10].title));
+  assert.equal(chip(nodes, 'Court').props.value, 'sc');
+  assert.equal(chip(nodes, 'Category').props.value, 'Criminal');
+  assert.equal(calls.length, pageTwoCalls + 1);
+  const sort = chip(nodes, 'Sort loaded search results');
+  sort.props.onChange({ target: { value: 'newest' } });
+  nodes = render();
+  assert.equal(nodes.find(node => node.type === 'h3').props.children, fixture[10].title);
+  assert.equal(calls.length, pageTwoCalls + 1);
+  chip(nodes, 'Sort loaded search results').props.onChange({ target: { value: 'relevance' } });
   nodes = render();
   nodes.find(node => node.props['aria-label'] === `Read details for ${fixture[0].title}`).props.onClick();
   assert.ok(hasText(render(), 'Loading details'));
@@ -194,12 +227,20 @@ async function main() {
   nodes = render();
   assert.ok(hasText(nodes, 'No legal updates found'));
   assert.ok(search.signal.aborted);
-  button(nodes, 'Reset').props.onClick();
+  assert.equal(button(nodes, 'Reset'), undefined);
+  nodes.find(node => node.props['aria-label'] === 'Clear search').props.onClick();
   nodes = render();
   assert.equal(nodes.filter(node => node.type === 'input' && node.props.type === 'date').length, 2);
   await tick();
   nodes = render();
   assert.ok(hasText(nodes, fixture[0].title));
+  assert.equal(chip(nodes, 'Court').props.value, 'sc');
+  button(nodes, 'Clear filters').props.onClick();
+  render();
+  await tick();
+  nodes = render();
+  assert.equal(chip(nodes, 'Court').props.value, '');
+  assert.equal(button(nodes, 'Clear filters'), undefined);
 
   const [dateFrom, dateTo] = nodes.filter(node => node.type === 'input' && node.props.type === 'date');
   dateFrom.props.onChange({ target: { value: '2026-11-15' } });
@@ -207,7 +248,7 @@ async function main() {
   submit(render());
   assert.ok(hasText(render(), 'The end date must be on or after the start date.'));
   dateTo.props.onChange({ target: { value: '2026-11-17' } });
-  submit(render());
+  button(render(), 'Apply dates').props.onClick();
   render();
   await tick();
   assert.ok(calls.at(-1).endpoint.includes('date_from=2026-11-15&date_to=2026-11-17'));
@@ -215,7 +256,7 @@ async function main() {
   render();
   await tick();
   assert.ok(calls.at(-1).endpoint.includes('offset=10'));
-  console.log('Legal Intelligence component checks passed: routing, search and filters, retry, pagination, reader, safe links, cancellation, empty and reset.');
+  console.log('Legal Intelligence checks passed: compact controls, search, filters, sorting, pagination, reader context, safe links, loading, retry, cancellation and empty states.');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
