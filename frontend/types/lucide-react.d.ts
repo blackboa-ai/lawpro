@@ -51,4 +51,8 @@ declare module 'lucide-react' {
   export const HelpCircle: React.FC<IconProps>;
   export const Copy: React.FC<IconProps>;
   export const ExternalLink: React.FC<IconProps>;
+  export const ArrowLeft: React.FC<IconProps>;
+  export const ArrowRight: React.FC<IconProps>;
+  export const Info: React.FC<IconProps>;
+  export const SlidersHorizontal: React.FC<IconProps>;
 }
