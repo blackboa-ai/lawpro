@@ -202,7 +202,7 @@ function ResultReader({ entry, onClose }: { entry: ReaderEntry; onClose: () => v
       </div>
       <div className={styles.readerScroll} tabIndex={0} role="region" aria-label="Document content">
         <div className={styles.readerContent}>
-          <h2 ref={title} id="reader-title" tabIndex={-1} className={styles.readerTitle}>{detail.title}</h2>
+          <h2 ref={title} id="reader-title" tabIndex={-1} data-pointer-focus={!keyboard} className={styles.readerTitle}>{detail.title}</h2>
           <ItemMetadata item={detail} />
           <SourceLink item={detail} />
           {state.status === 'loading' && <p role="status" className="text-sm text-slate-600">Loading details…</p>}

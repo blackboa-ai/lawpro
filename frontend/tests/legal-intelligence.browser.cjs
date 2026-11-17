@@ -99,6 +99,11 @@ async function measureReader(page, width, height, touch, article = card(page)) {
   await dialog(page).getByRole('heading', { name: 'Source text' }).waitFor();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'reader-title');
   assert.equal(await back(page).evaluate(node => node.matches(':focus-visible')), false);
+  assert.equal(await dialog(page).locator('#reader-title').evaluate(node => {
+    const { outlineColor, outlineStyle, outlineWidth } = getComputedStyle(node);
+    return outlineStyle !== 'none' && parseFloat(outlineWidth) > 0
+      && !['transparent', 'rgba(0, 0, 0, 0)'].includes(outlineColor);
+  }), false, 'pointer entry leaves the programmatically focused heading without a visible ring');
   const rect = await dialog(page).boundingBox();
   assert.ok(rect.x >= 0 && rect.x + rect.width <= width && rect.y >= 0 && rect.y + rect.height <= height + 1);
   if (touch) assert.ok(Math.abs(rect.y + rect.height - height) <= 1, 'mobile reader docks to the viewport');
@@ -111,7 +116,7 @@ async function measureReader(page, width, height, touch, article = card(page)) {
   }));
   assert.ok((await back(page).boundingBox()).y >= 0);
   await hit(page, back(page), touch);
-  await dialog(page).waitFor({ state: 'hidden' });
+  await page.locator('dialog').waitFor({ state: 'detached' });
   await page.waitForFunction(expected => Math.abs(window.scrollY - expected) <= 1, y);
   assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-haspopup')), 'dialog');
 }
@@ -236,7 +241,7 @@ async function checkInteractions(browser, storageState, engine, runAxe) {
   await page.keyboard.press('Tab');
   assert.ok(await readerBody(page).evaluate(node => node === document.activeElement));
   await page.keyboard.press('Escape');
-  await dialog(page).waitFor({ state: 'hidden' });
+  await page.locator('dialog').waitFor({ state: 'detached' });
   assert.ok(await details.evaluate(node => node === document.activeElement));
   assert.equal(await query(page).inputValue(), 'bail');
   assert.equal(await court(page).inputValue(), 'sc');

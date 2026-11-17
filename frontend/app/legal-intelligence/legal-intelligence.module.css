@@ -421,6 +421,11 @@
   letter-spacing: -0.03em;
 }
 
+.readerTitle[data-pointer-focus='true']:focus {
+  /* WebKit can apply :focus-visible to this static heading after showModal(). */
+  outline-color: transparent;
+}
+
 .sourceText {
   inline-size: 100%;
   padding-block-start: 1rem;
