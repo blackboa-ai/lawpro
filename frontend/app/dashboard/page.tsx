@@ -82,9 +82,10 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (search === debouncedSearch) return;
     const timer = setTimeout(() => { setPage(0); setDebouncedSearch(search); }, 250);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, debouncedSearch]);
 
   useEffect(() => {
     fetchData(!stats);
@@ -244,9 +245,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Cases List */}
-      <div id="case-list" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-5 sm:gap-3">
-          <h2 className="text-xl font-semibold tracking-tight">Your cases</h2>
+      <section id="case-list" aria-labelledby="case-list-heading" className="min-[641px]:rounded-2xl min-[641px]:border min-[641px]:border-slate-200 min-[641px]:bg-white min-[641px]:p-6 min-[641px]:shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-5 sm:gap-3">
+          <h2 id="case-list-heading" className="text-xl font-semibold tracking-tight">Your cases</h2>
           <div className="flex flex-wrap items-center gap-2">
           {visibleCases.length > 0 && (
             <button
@@ -270,8 +271,8 @@ export default function DashboardPage() {
         </div>
 
         {(stats?.total_cases || 0) > 0 && (
-          <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-2 sm:mb-5 sm:grid-cols-[minmax(0,1fr)_11rem] sm:gap-3">
-            <label className="text-sm font-medium text-slate-700">
+          <div className="mb-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-2 sm:mb-5 sm:grid-cols-[minmax(0,1fr)_11rem] sm:gap-3">
+            <label className="min-w-0 text-sm font-medium text-slate-700">
               Search cases
               <input
                 type="search"
@@ -281,7 +282,7 @@ export default function DashboardPage() {
                 className="mt-1 block w-full rounded-lg border border-slate-300 min-h-11 px-3 py-2.5 text-base"
               />
             </label>
-            <label className="text-sm font-medium text-slate-700">
+            <label className="min-w-0 text-sm font-medium text-slate-700">
               Filter by status
               <select
                 value={statusFilter}
@@ -326,13 +327,13 @@ export default function DashboardPage() {
         ) : visibleCases.length === 0 ? (
           <p role="status" className="py-8 text-center text-sm text-slate-600">No cases match your search and filters.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5 sm:space-y-3">
             {visibleCases.map(caseItem => (
               <CaseCard
                 key={caseItem.id}
                 case={caseItem}
                 onEdit={() => setEditingCase(caseItem)}
-                  onNotesSaved={handleNotesSaved}
+                onNotesSaved={handleNotesSaved}
                 onUpdate={handleStatusChange}
                 onDelete={handleDeleteCase}
               />
@@ -346,7 +347,7 @@ export default function DashboardPage() {
             <button type="button" disabled={(page + 1) * pageSize >= total} onClick={() => setPage(page + 1)} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">Next</button>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -462,33 +463,29 @@ function CaseCard({ case: caseItem, onEdit, onNotesSaved, onUpdate, onDelete }: 
   const formattedHearingDate = hearingDate && new Date(hearingDate).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
   });
-  const actionClass = 'inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2';
+  const actionClass = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2';
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-      <div>
-        <div className="min-w-0 wrap-break-word">
-          <h3 className="font-semibold">{caseItem.case_title}</h3>
-          {caseItem.case_number && <p className="text-sm text-slate-600">Case no. {caseItem.case_number}</p>}
-          {caseItem.court_name && (
-            <p className="text-sm text-gray-600">{caseItem.court_name}</p>
-          )}
-          {hearingDate && (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-              <Calendar size={14} aria-hidden={true} className="shrink-0" />
-              Next hearing: {formattedHearingDate}
-            </p>
-          )}
-        </div>
+      <h3 className="wrap-anywhere text-base leading-snug font-semibold text-slate-900">{caseItem.case_title}</h3>
+      <div className="mt-1 space-y-0.5 wrap-anywhere text-sm text-slate-600">
+        {caseItem.case_number && <p>Case no. {caseItem.case_number}</p>}
+        {caseItem.court_name && <p>{caseItem.court_name}</p>}
+        {hearingDate && (
+          <p className="flex items-center gap-1.5 font-medium text-slate-700">
+            <Calendar size={14} aria-hidden={true} className="shrink-0" />
+            Next hearing: {formattedHearingDate}
+          </p>
+        )}
       </div>
       <CaseNotes caseItem={caseItem} onSaved={onNotesSaved} />
-      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-100 pt-2">
         <div className="relative inline-flex items-center">
           <select
             aria-label={`Status for ${caseItem.case_title}`}
             value={caseItem.status}
             onChange={e => onUpdate(caseItem.id, e.target.value as Case['status'])}
-            className={`min-h-11 appearance-none rounded-xl py-2 pl-3 pr-8 text-base font-medium ring-1 ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-sm ${statusColors[caseItem.status]}`}
+            className={`min-h-11 appearance-none rounded-lg py-2 pl-3 pr-8 text-base font-medium ring-1 ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-sm ${statusColors[caseItem.status]}`}
           >
             <option value="pending">Pending</option>
             <option value="ongoing">Ongoing</option>
@@ -497,35 +494,32 @@ function CaseCard({ case: caseItem, onEdit, onNotesSaved, onUpdate, onDelete }: 
           </select>
           <ChevronDown size={14} aria-hidden={true} className="pointer-events-none absolute right-2.5 text-slate-600" />
         </div>
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label="Edit case"
-          className={`${actionClass} text-slate-700 hover:bg-slate-100`}
-        >
-          <Edit size={16} aria-hidden={true} />
-          Edit
-        </button>
-        {hearingDate && (
+        <div className="flex flex-wrap items-center gap-1">
+          <button type="button" onClick={onEdit} aria-label="Edit case" className={actionClass}>
+            <Edit size={16} aria-hidden={true} />
+            Edit
+          </button>
+          {hearingDate && (
+            <button
+              type="button"
+              onClick={() => calendarDialog.current?.showModal()}
+              aria-label="Add to calendar"
+              className={actionClass}
+            >
+              <Calendar size={16} aria-hidden={true} />
+              Calendar
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => calendarDialog.current?.showModal()}
-            aria-label="Add to calendar"
-            className={`${actionClass} bg-violet-50 text-violet-900 hover:bg-violet-100`}
+            onClick={() => onDelete(caseItem.id)}
+            aria-label="Delete case"
+            title="Delete case"
+            className={`${actionClass} min-w-11 justify-center hover:text-red-700`}
           >
-            <Calendar size={16} aria-hidden={true} />
-            Calendar
+            <Trash2 size={16} aria-hidden={true} />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => onDelete(caseItem.id)}
-          aria-label="Delete case"
-          title="Delete case"
-          className={`${actionClass} ml-auto min-w-11 justify-center text-slate-500 hover:bg-red-50 hover:text-red-700`}
-        >
-          <Trash2 size={16} aria-hidden={true} />
-        </button>
+        </div>
       </div>
       {hearingDate && (
         <dialog

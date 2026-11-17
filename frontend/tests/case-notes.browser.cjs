@@ -3,6 +3,7 @@
 // Set BROWSER=webkit to run in WebKit, or CHANNEL=chrome to use installed Chrome.
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
+const { readFile } = require('node:fs/promises');
 const playwright = require('playwright');
 
 const title = 'Boundary dispute';
@@ -50,6 +51,7 @@ async function seed(apiOrigin) {
   const otherToken = await account();
   const otherCase = await create(otherToken, { case_title: 'Private case', description: 'Private notes' });
   await create(token, { case_title: 'No notes case', description: ' \n ' });
+  await create(token, { case_title: 'Short notes case', description: 'Call the clerk.' });
   const ownCase = await create(token, {
     case_title: title, description: notes, case_number: '2026/12', court_name: 'District Court',
     next_hearing_date: '2099-01-15',
@@ -57,7 +59,7 @@ async function seed(apiOrigin) {
   const headers = { Authorization: `Bearer ${token}` };
   assert.equal((await request(`cases/${otherCase.id}`, { headers })).status, 404);
   assert.equal((await request('cases/')).status, 401);
-  return { token, ownCase };
+  return { token, ownCase, createCase: data => create(token, data) };
 }
 
 async function checkLayout(browser, frontend, token, width, height, mobile) {
@@ -67,6 +69,7 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   const preview = page.getByRole('button', { name: `Case Notes for ${title}`, exact: true });
   const modal = page.getByRole('dialog', { name: `Case Notes ${title}`, exact: true });
   const region = modal.getByRole('region', { name: 'Notes text' });
+  const scroller = region.locator('..');
   const close = modal.getByRole('button', { name: 'Close', exact: true });
   const edit = modal.getByRole('button', { name: 'Edit Notes', exact: true });
 
@@ -74,6 +77,21 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   assert.equal(await page.getByText('Private notes', { exact: true }).count(), 0);
   assert.equal(await page.getByRole('heading', { name: 'Private case' }).count(), 0);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth === document.documentElement.clientWidth));
+  const caseList = page.getByRole('region', { name: 'Your cases' });
+  const panel = await caseList.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { padding: style.paddingLeft, border: style.borderLeftWidth, shadow: style.boxShadow, background: style.backgroundColor };
+  });
+  if (width <= 640) {
+    assert.deepEqual(panel, { padding: '0px', border: '0px', shadow: 'none', background: 'rgba(0, 0, 0, 0)' });
+    const card = await preview.locator('..').boundingBox();
+    for (const field of [page.getByRole('searchbox', { name: 'Search cases' }), page.getByLabel('Filter by status')]) {
+      const box = await field.boundingBox();
+      assert.ok(Math.abs(box.x - card.x) < 1 && Math.abs(box.width - card.width) < 1);
+    }
+  } else {
+    assert.equal(panel.border, '1px');
+  }
   const clamp = await preview.getByText(/First paragraph of the case notes/).evaluate(element => {
     const style = getComputedStyle(element);
     return { lines: style.webkitLineClamp, lineHeight: parseFloat(style.lineHeight), height: element.clientHeight };
@@ -96,25 +114,21 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   }
   await modal.waitFor();
   assert.equal(await region.locator('p').last().textContent(), notes);
-  const content = await region.evaluate(element => ({
-    whiteSpace: getComputedStyle(element.lastElementChild).whiteSpace,
+  assert.equal(await region.locator('p').evaluate(element => getComputedStyle(element).whiteSpace), 'pre-wrap');
+  const content = await scroller.evaluate(element => ({
     height: element.clientHeight, scrollHeight: element.scrollHeight,
     width: element.clientWidth, scrollWidth: element.scrollWidth,
   }));
-  assert.equal(content.whiteSpace, 'pre-wrap');
   assert.ok(content.height > 0 && content.scrollHeight > content.height);
   assert.equal(content.scrollWidth, content.width);
-  await region.evaluate(element => { element.scrollTop = element.scrollHeight; });
-  assert.ok(await region.evaluate(element => element.scrollTop > 0));
-
   const box = await modal.boundingBox();
   if (mobile) {
     assert.equal(box.x, 0);
     assert.equal(box.width, width);
     assert.ok(Math.abs(box.y + box.height - height) < 1, 'The sheet sits at the bottom');
-    assert.ok(Math.abs(box.height - height * 0.9) < 1, 'The sheet uses 90% of the viewport height');
+    assert.ok(Math.abs(box.height - height * 0.85) < 1, 'Long notes reach the 85% height cap');
   } else {
-    assert.equal(box.width, 600);
+    assert.equal(box.width, 560);
     assert.ok(Math.abs(box.x + box.width / 2 - width / 2) < 1, 'The modal is horizontally centered');
     assert.ok(Math.abs(box.y + box.height / 2 - height / 2) < 1, 'The modal is vertically centered');
   }
@@ -126,17 +140,22 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   assert.ok(Math.abs(previewBehindModal.y - previewBefore.y) < 1, 'Opening preserves the background position');
 
   if (mobile) {
+    await scroller.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    assert.ok(await scroller.evaluate(element => element.scrollTop > 0));
+    await scroller.evaluate(element => { element.scrollTop = 0; });
     await close.tap();
     assert.equal(await preview.evaluate(element => getComputedStyle(element).outlineStyle), 'none');
   } else {
-    assert.equal(await region.evaluate(element => element === document.activeElement), true);
-    assert.equal(await region.evaluate(element => getComputedStyle(element).outlineStyle), 'solid');
+    assert.equal(await close.evaluate(element => element === document.activeElement), true);
+    assert.equal(await close.evaluate(element => getComputedStyle(element).outlineStyle), 'solid');
     await page.keyboard.press('Shift+Tab');
     assert.equal(await edit.evaluate(element => element === document.activeElement), true);
     await page.keyboard.press('Tab');
-    assert.equal(await region.evaluate(element => element === document.activeElement), true);
-    await page.keyboard.press('Tab');
     assert.equal(await close.evaluate(element => element === document.activeElement), true);
+    await page.keyboard.press('Tab');
+    assert.equal(await region.evaluate(element => element === document.activeElement), true);
+    await page.keyboard.press('End');
+    await page.waitForFunction(() => document.activeElement.parentElement.scrollTop > 0);
     await page.mouse.move(5, 5);
     await page.mouse.wheel(0, 500);
     assert.equal(await page.evaluate(() => window.scrollY), 0);
@@ -149,7 +168,16 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   await page.getByRole('button', { name: 'Add notes for No notes case' }).click();
   const empty = page.getByRole('dialog', { name: 'Case Notes No notes case' });
   await empty.getByText('No notes yet.').waitFor();
+  assert.ok((await empty.boundingBox()).height < box.height);
   await empty.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Case Notes for Short notes case', exact: true }).click();
+  const short = page.getByRole('dialog', { name: 'Case Notes Short notes case', exact: true });
+  const shortText = short.getByText('Call the clerk.', { exact: true });
+  const textBox = await shortText.boundingBox();
+  const editBox = await short.getByRole('button', { name: 'Edit Notes' }).boundingBox();
+  assert.ok((await short.boundingBox()).height < 200, 'Short notes wrap their content');
+  assert.ok(editBox.y - (textBox.y + textBox.height) < 40, 'Actions follow the note');
+  await short.getByRole('button', { name: 'Close', exact: true }).click();
   return page;
 }
 
@@ -169,14 +197,42 @@ async function checkNotesEditing(page, token, ownCase) {
   assert.equal(await field.inputValue(), notes);
   assert.equal(await field.evaluate(element => element === document.activeElement), true);
   assert.equal(await save.isDisabled(), true);
-  const footer = await save.boundingBox();
   await field.fill('One line');
   const short = await field.boundingBox();
   await field.fill('Wrapped line for the growing editor.\n'.repeat(8));
   assert.ok((await field.boundingBox()).height > short.height, 'The textarea expands with the draft');
   await field.fill(`${notes}\nUnsaved text`);
   assert.ok(await field.evaluate(element => element.scrollHeight > element.clientHeight));
-  assert.equal((await save.boundingBox()).y, footer.y, 'Save stays visible as the draft expands');
+
+  // Mobile emulation has no system keyboard. Exercise the resize and pan events Safari reports.
+  await page.evaluate(() => {
+    const viewport = window.visualViewport;
+    Object.defineProperties(viewport, {
+      height: { configurable: true, value: 210 },
+      offsetTop: { configurable: true, value: 32 },
+    });
+    viewport.dispatchEvent(new Event('resize'));
+    Object.defineProperty(viewport, 'offsetTop', { value: 16 });
+    viewport.dispatchEvent(new Event('scroll'));
+  });
+  const keyboardTop = 226;
+  const sheet = await modal.boundingBox();
+  const input = await field.boundingBox();
+  for (const button of [cancel, save]) {
+    const control = await button.boundingBox();
+    assert.ok(control.y + control.height <= keyboardTop, 'Actions stay above the keyboard');
+    assert.equal(await button.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === element;
+    }), true, 'The action is reachable with the keyboard open');
+  }
+  assert.ok(sheet.height <= 210 * 0.85 && Math.abs(sheet.y + sheet.height - keyboardTop) < 1);
+  assert.ok(input.y >= 16 && input.y + 44 < (await save.boundingBox()).y, 'The focused input is visible');
+  await page.evaluate(() => {
+    delete visualViewport.height;
+    delete visualViewport.offsetTop;
+    visualViewport.dispatchEvent(new Event('resize'));
+  });
 
   page.once('dialog', confirmation => confirmation.dismiss());
   await cancel.tap();
@@ -189,7 +245,7 @@ async function checkNotesEditing(page, token, ownCase) {
   await edit.tap();
   await field.fill('Unsaved text');
   page.once('dialog', confirmation => confirmation.dismiss());
-  await page.keyboard.press('Escape');
+  await close.tap();
   assert.equal(await field.inputValue(), 'Unsaved text');
   page.once('dialog', confirmation => confirmation.accept());
   await page.keyboard.press('Escape');
@@ -253,15 +309,56 @@ async function checkCaseActions(page) {
   await card.getByRole('button', { name: 'Delete case' }).click();
   await preview.waitFor({ state: 'hidden' });
   await page.reload();
-  await page.getByRole('button', { name: 'Add notes for No notes case' }).waitFor();
+  await page.getByRole('heading', { name: 'Your cases', exact: true }).waitFor();
   assert.equal(await preview.count(), 0);
+}
+
+async function checkDashboardTools(page, createCase) {
+  for (let index = 0; index < 25; index++) {
+    await createCase({ case_title: `QA case ${index + 1}` });
+  }
+  await page.reload();
+  await page.getByText('Page 1 of 2', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByText('Page 2 of 2', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Short notes case', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Previous', exact: true }).click();
+  await page.getByText('Page 1 of 2', { exact: true }).waitFor();
+
+  await page.getByRole('searchbox', { name: 'Search cases' }).fill('District Court');
+  await page.getByText('1 of 28 cases', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: title, exact: true }).waitFor();
+  await page.getByLabel('Filter by status').selectOption('ongoing');
+  await page.getByText('No cases match your search and filters.').waitFor();
+  await page.getByLabel('Filter by status').selectOption('pending');
+  await page.getByText('1 of 28 cases', { exact: true }).waitFor();
+  const windowsWebKit = process.platform === 'win32' && page.context().browser().browserType().name() === 'webkit';
+  if (windowsWebKit) {
+    // Windows WebKit emits the download event but cancels saving the app's Blob URL.
+    await page.evaluate(() => {
+      const createObjectURL = URL.createObjectURL;
+      URL.createObjectURL = blob => {
+        URL.createObjectURL = createObjectURL;
+        window.exportedCsv = blob.text();
+        return URL.createObjectURL(blob);
+      };
+    });
+  }
+  const exportEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export filtered CSV' }).click();
+  const file = await exportEvent;
+  assert.match(file.suggestedFilename(), /\.csv$/);
+  const csv = windowsWebKit ? await page.evaluate(() => window.exportedCsv) : await readFile(await file.path(), 'utf8');
+  assert.ok(csv.includes(title) && csv.includes('District Court') && !csv.includes('QA case'));
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await page.getByText('Page 1 of 2', { exact: true }).waitFor();
 }
 
 async function main() {
   const frontend = localOrigin(process.argv[2]);
   const api = localOrigin(process.argv[3]);
   const engine = process.env.BROWSER || 'chromium';
-  const { token, ownCase } = await seed(api);
+  const { token, ownCase, createCase } = await seed(api);
   const browser = await playwright[engine].launch({ channel: process.env.CHANNEL });
   try {
     for (const [width, height] of [[320, 568], [375, 667], [390, 844], [430, 932], [844, 390]]) {
@@ -276,6 +373,8 @@ async function main() {
     const scrolledDesktop = await checkLayout(browser, frontend, token, 1280, 600, false);
     await scrolledDesktop.close();
     const page = await checkLayout(browser, frontend, token, 1440, 900, false);
+    await checkDashboardTools(page, createCase);
+    console.log(`${engine} desktop: search, status filters, pagination, and CSV passed`);
     await checkCaseActions(page);
     console.log(`${engine} desktop: centered layout, keyboard, case actions, and ownership passed`);
   } finally {
