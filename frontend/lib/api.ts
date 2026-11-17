@@ -98,7 +98,7 @@ function errorMessage(detail: unknown): string {
 }
 
 // API request with auth
-async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   
   const headers: Record<string, string> = {

@@ -3,6 +3,7 @@
 import base64
 import re
 from typing import Literal, Optional
+from urllib.parse import urlsplit
 
 from pydantic import AnyUrl, Field, field_validator
 from pydantic_settings import BaseSettings
@@ -67,6 +68,30 @@ class Settings(BaseSettings):
         ):
             raise error
         # Keep the existing textual HMAC key so compatible HS256 tokens remain valid.
+        return value
+
+    LEGAL_AGGREGATOR_API_URL: str | None = None
+
+    @field_validator("LEGAL_AGGREGATOR_API_URL")
+    @classmethod
+    def validate_aggregator_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        value = value.strip().rstrip("/")
+        url = urlsplit(value)
+        local = url.hostname in {"localhost", "127.0.0.1", "::1"}
+        if (
+            (url.scheme != "https" and not (url.scheme == "http" and local))
+            or not url.hostname
+            or url.username is not None
+            or url.password is not None
+            or "?" in value
+            or "#" in value
+            or url.path != "/api/v1"
+            or re.search(r"[\s\\]", value)
+            or (url.port is not None and not 1 <= url.port <= 65535)
+        ):
+            raise ValueError("Use an HTTPS aggregator base ending in /api/v1 (HTTP is allowed on loopback).")
         return value
 
     # Hosts for CORS - FRONTEND_HOST is required for production
