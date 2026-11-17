@@ -5,7 +5,7 @@ import re
 from typing import Literal, Optional
 from urllib.parse import urlsplit
 
-from pydantic import AnyUrl, Field, field_validator
+from pydantic import AnyUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -71,6 +71,8 @@ class Settings(BaseSettings):
         return value
 
     LEGAL_AGGREGATOR_API_URL: str | None = None
+    LEGAL_AGGREGATOR_API_KEY_HEADER: str | None = None
+    AUTHORIZED_API_KEY1: SecretStr | None = None
 
     @field_validator("LEGAL_AGGREGATOR_API_URL")
     @classmethod
@@ -93,6 +95,20 @@ class Settings(BaseSettings):
         ):
             raise ValueError("Use an HTTPS aggregator base ending in /api/v1 (HTTP is allowed on loopback).")
         return value
+
+    @model_validator(mode="after")
+    def validate_aggregator_auth(self):
+        header = self.LEGAL_AGGREGATOR_API_KEY_HEADER
+        if header is None:
+            return self
+        if not re.fullmatch(r"(?:Authorization|API-Key|X-[A-Za-z0-9-]+)", header, re.IGNORECASE):
+            raise ValueError("Use Authorization, API-Key or an X- header for legal aggregator authentication.")
+        if not self.LEGAL_AGGREGATOR_API_URL or not self.LEGAL_AGGREGATOR_API_URL.startswith("https://"):
+            raise ValueError("Authenticated legal aggregator requests require an HTTPS API URL.")
+        key = self.AUTHORIZED_API_KEY1
+        if key is None or not re.fullmatch(r"[!-~]+", key.get_secret_value()):
+            raise ValueError("Set AUTHORIZED_API_KEY1 to a valid legal aggregator API key.")
+        return self
 
     # Hosts for CORS - FRONTEND_HOST is required for production
     BACKEND_HOST: Optional[str] = Field(default=None, description="Backend host URL")

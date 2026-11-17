@@ -13,7 +13,11 @@ from app.legal_intelligence import AggregatorError, LegalAggregator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.legal_aggregator = LegalAggregator(settings.LEGAL_AGGREGATOR_API_URL)
+    app.state.legal_aggregator = LegalAggregator(
+        settings.LEGAL_AGGREGATOR_API_URL,
+        api_key_header=settings.LEGAL_AGGREGATOR_API_KEY_HEADER,
+        api_key=settings.AUTHORIZED_API_KEY1,
+    )
     yield
 
 

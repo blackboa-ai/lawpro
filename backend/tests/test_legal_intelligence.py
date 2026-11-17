@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from jose import jwt as jose_jwt
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -203,4 +203,47 @@ def test_aggregator_settings_reject_unsafe_bases(base):
         Settings(
             DATABASE_URL="sqlite:///:memory:", SECRET_KEY=token_hex(32),
             FRONTEND_HOST="http://localhost:3000", LEGAL_AGGREGATOR_API_URL=base,
+        )
+
+
+@pytest.mark.parametrize(("header", "expected"), [
+    ("X-API-Key", "fixture-key"),
+    ("Authorization", "Bearer fixture-key"),
+])
+def test_aggregator_key_is_sent_only_to_configured_origin(research, header, expected):
+    client, service, *_ = research
+    requests = []
+
+    def redirect(request):
+        requests.append(request)
+        return httpx.Response(302, headers={"Location": "https://other.example/api/v1/judgments"})
+
+    service.api_key_header = header
+    service.api_key = SecretStr("fixture-key")
+    service.transport = httpx.MockTransport(redirect)
+
+    response = client.get(f"{ROOT}/updates")
+    assert response.status_code == 502
+    assert "fixture-key" not in response.text
+    assert len(requests) == 1
+    assert requests[0].url.host == "upstream.example"
+    assert requests[0].headers[header] == expected
+    assert "cookie" not in requests[0].headers
+    if header != "Authorization":
+        assert "authorization" not in requests[0].headers
+
+
+@pytest.mark.parametrize(("base", "header", "key"), [
+    (None, "X-API-Key", "fixture-key"),
+    ("http://localhost/api/v1", "X-API-Key", "fixture-key"),
+    (BASE, "Host", "fixture-key"),
+    (BASE, "X-API-Key", None),
+    (BASE, "X-API-Key", "invalid\r\nkey"),
+])
+def test_settings_reject_invalid_aggregator_auth(base, header, key):
+    with pytest.raises(ValidationError):
+        Settings(
+            DATABASE_URL="sqlite:///:memory:", SECRET_KEY=token_hex(32),
+            FRONTEND_HOST="http://localhost:3000", LEGAL_AGGREGATOR_API_URL=base,
+            LEGAL_AGGREGATOR_API_KEY_HEADER=header, AUTHORIZED_API_KEY1=key,
         )

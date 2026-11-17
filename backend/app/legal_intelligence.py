@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 MAX_BODY = 4 * 1024 * 1024
 MAX_OFFSET = 1000
@@ -114,9 +114,18 @@ class SearchPage(UpstreamPage):
 
 
 class LegalAggregator:
-    def __init__(self, base_url: str | None, *, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self,
+        base_url: str | None,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+        api_key_header: str | None = None,
+        api_key: SecretStr | None = None,
+    ):
         self.base_url = base_url
         self.transport = transport
+        self.api_key_header = api_key_header
+        self.api_key = api_key
         self.slots = asyncio.Semaphore(8)
         self.cache: OrderedDict[tuple, tuple[float, BaseModel]] = OrderedDict()
         self.cache_locks = [asyncio.Lock() for _ in range(16)]
@@ -124,6 +133,12 @@ class LegalAggregator:
     async def _get(self, path: str, params: dict | None = None, *, detail: bool = False):
         if not self.base_url:
             raise AggregatorError(503, "Legal research is temporarily unavailable.")
+        headers = {"Accept": "application/json"}
+        if self.api_key_header and self.api_key:
+            value = self.api_key.get_secret_value()
+            if self.api_key_header.lower() == "authorization":
+                value = f"Bearer {value}"
+            headers[self.api_key_header] = value
         try:
             async with asyncio.timeout(15), self.slots:
                 # Each call has its own cookie jar. Only the public query parameters go upstream.
@@ -133,7 +148,7 @@ class LegalAggregator:
                     trust_env=False,
                     transport=self.transport,
                 ) as client, client.stream(
-                    "GET", f"{self.base_url}{path}", params=params, headers={"Accept": "application/json"}
+                    "GET", f"{self.base_url}{path}", params=params, headers=headers
                 ) as response:
                     if response.status_code == 404 and detail:
                         raise AggregatorError(404, "This update is no longer available.")
