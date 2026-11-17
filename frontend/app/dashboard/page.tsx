@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Case, DashboardStats } from '@/types';
 import { Calendar, ChevronDown, Edit, LogOut, Plus, Trash2 } from 'lucide-react';
 import { CaseEditor } from './CaseEditor';
+import { CaseNotes } from './CaseNotes';
 import { casesCsv, downloadFile, hearingCalendar } from '@/lib/caseExports';
 
 const hearingRanges = [
@@ -473,6 +474,7 @@ function CaseCard({ case: caseItem, onEdit, onUpdate, onDelete }: {
           )}
         </div>
       </div>
+      <CaseNotes caseItem={caseItem} onEdit={onEdit} />
       <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
         <div className="relative inline-flex items-center">
           <select
