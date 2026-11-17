@@ -190,6 +190,11 @@ export default function DashboardPage() {
     }
   };
 
+  const handleNotesSaved = (id: number, description: Case['description']) => {
+    setCases(current => current.map(item => item.id === id ? { ...item, description } : item));
+    fetchData();
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -327,6 +332,7 @@ export default function DashboardPage() {
                 key={caseItem.id}
                 case={caseItem}
                 onEdit={() => setEditingCase(caseItem)}
+                  onNotesSaved={handleNotesSaved}
                 onUpdate={handleStatusChange}
                 onDelete={handleDeleteCase}
               />
@@ -438,9 +444,10 @@ function StatCard({ title, value, color }: { title: string; value: number; color
   );
 }
 
-function CaseCard({ case: caseItem, onEdit, onUpdate, onDelete }: {
+function CaseCard({ case: caseItem, onEdit, onNotesSaved, onUpdate, onDelete }: {
   case: Case;
   onEdit: () => void;
+  onNotesSaved: (id: number, description: Case['description']) => void;
   onUpdate: (id: number, status: 'pending' | 'ongoing' | 'completed' | 'dismissed') => void;
   onDelete: (id: number) => void;
 }) {
@@ -474,7 +481,7 @@ function CaseCard({ case: caseItem, onEdit, onUpdate, onDelete }: {
           )}
         </div>
       </div>
-      <CaseNotes caseItem={caseItem} onEdit={onEdit} />
+      <CaseNotes caseItem={caseItem} onSaved={onNotesSaved} />
       <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
         <div className="relative inline-flex items-center">
           <select
