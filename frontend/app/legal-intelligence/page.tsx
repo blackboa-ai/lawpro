@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ExternalLink, Info, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
   getLegalDetail, getLegalFilters, getLegalUpdates, originalSourceUrl,
 } from '@/lib/legalIntelligence';
 import type { LegalItem } from '@/lib/legalIntelligence';
+import styles from './legal-intelligence.module.css';
 
 const sourceNames: Record<string, string> = {
   sci: 'Supreme Court of India',
@@ -19,11 +20,12 @@ const sourceNames: Record<string, string> = {
 const pageSize = 10;
 const searchWindow = 25;
 const emptyFilters = { q: '', court: '', category: '', date_from: '', date_to: '' };
-const inputStyle = 'min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700';
-const buttonStyle = 'inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-center text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-45';
-const primary = `${buttonStyle} bg-slate-900 text-white hover:bg-slate-700`;
+const inputStyle = 'block min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-950';
+const buttonStyle = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold disabled:opacity-50';
+const primary = `${buttonStyle} ${styles.primary}`;
 const secondary = `${buttonStyle} border border-slate-300 bg-white text-slate-800 hover:bg-slate-100`;
-const chipStyle = 'min-h-11 min-w-0 max-w-full rounded-full border px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 disabled:opacity-50';
+
+type ReaderEntry = { item: LegalItem; trigger: HTMLButtonElement; keyboard: boolean };
 
 type RequestState<T> =
   | { status: 'loading' }
@@ -75,17 +77,18 @@ function SourceLink({ item, compact = false }: { item: LegalItem; compact?: bool
   const url = originalSourceUrl(item.url);
   if (!url) return null;
   return (
-    <a className={compact ? 'relative z-10 inline-flex min-h-11 items-center rounded text-sm font-semibold text-slate-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2' : secondary}
+    <a className={compact ? styles.cardSource : primary}
       href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open original source for ${item.title} (opens in a new tab)`}>
-      {compact ? 'Original source' : 'Open original source'} <span aria-hidden="true" className="ml-1">↗</span>
+      {compact ? 'Original Source' : 'Open Original Source'} <ExternalLink aria-hidden={true} size={14} />
     </a>
   );
 }
 
 function ItemMetadata({ item }: { item: LegalItem }) {
+  if (!item.source && !item.court_name && !item.judgment_date && !item.subject_category) return null;
   return (
-    <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed text-slate-600 sm:text-sm">
-      {item.source && <li className="font-semibold text-slate-800">{Object.hasOwn(sourceNames, item.source) ? sourceNames[item.source] : item.source}</li>}
+    <ul role="list" className={styles.metadata} aria-label="Document metadata">
+      {item.source && <li className={styles.publisher}>{Object.hasOwn(sourceNames, item.source) ? sourceNames[item.source] : item.source}</li>}
       {item.court_name && <li>{item.court_name}</li>}
       {item.judgment_date && <li><time dateTime={item.judgment_date}>{item.judgment_date}</time></li>}
       {item.subject_category && <li>{item.subject_category}</li>}
@@ -93,16 +96,16 @@ function ItemMetadata({ item }: { item: LegalItem }) {
   );
 }
 
-function ResultCard({ item, open }: { item: LegalItem; open: () => void }) {
+function ResultCard({ item, open }: { item: LegalItem; open: (entry: ReaderEntry) => void }) {
   return (
-    <article className="relative space-y-2 rounded-xl border border-slate-200 bg-white px-4 pt-4 pb-1 [overflow-wrap:anywhere] transition-colors hover:border-amber-500 hover:bg-amber-50/40 has-[:active]:bg-amber-50 sm:px-5">
-      <h3 className="text-base font-semibold leading-snug text-slate-950 sm:text-lg">{item.title}</h3>
+    <article className={styles.card}>
+      <h3 className="text-base font-semibold leading-snug tracking-tight text-slate-950 sm:text-lg">{item.title}</h3>
       <ItemMetadata item={item} />
       {item.excerpt && <p className="line-clamp-3 text-sm leading-relaxed text-slate-700">{item.excerpt}</p>}
-      <div className="flex flex-wrap items-center justify-between gap-x-4">
-        <button type="button" onClick={open} aria-haspopup="dialog" aria-label={`Read details for ${item.title}`}
-          className="min-h-11 cursor-pointer text-sm font-semibold text-slate-900 after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-slate-900">
-          Read details <span aria-hidden="true" className="ml-1 text-amber-800">→</span>
+      <div className="flex flex-wrap items-center justify-between gap-x-3">
+        <button type="button" onClick={event => open({ item, trigger: event.currentTarget, keyboard: event.detail === 0 })}
+          aria-haspopup="dialog" aria-label={`Read details for ${item.title}`} className={styles.cardAction}>
+          Read Details <ArrowRight aria-hidden={true} size={15} />
         </button>
         <SourceLink item={item} compact />
       </div>
@@ -119,55 +122,129 @@ function RequestError({ message, retry }: { message: string; retry: () => void }
   );
 }
 
-function ResultReader({ item, onClose }: { item: LegalItem; onClose: () => void }) {
+function lockPageScroll() {
+  const { scrollX, scrollY } = window;
+  const body = document.body.style;
+  const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+  const padding = window.getComputedStyle(document.body).paddingInlineEnd;
+  const styles = {
+    position: 'fixed',
+    top: `${-scrollY}px`,
+    insetInlineStart: '0',
+    insetInlineEnd: '0',
+    paddingInlineEnd: `calc(${padding} + ${scrollbar}px)`,
+  };
+  const properties = Object.keys(styles) as (keyof typeof styles)[];
+  const previous = properties.map(property => body[property]);
+  Object.assign(body, styles);
+  return () => {
+    properties.forEach((property, index) => { body[property] = previous[index]; });
+    window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
+  };
+}
+
+function SourceText({ title, text }: { title: string; text: string }) {
+  const paragraphs = text.replace(/\r\n?/g, '\n').split(/\n(?:[^\S\n]*\n)+/);
+  return (
+    <section aria-labelledby="reader-text-title" className={styles.sourceText}>
+      <h3 id="reader-text-title" className="text-lg font-semibold tracking-tight text-slate-950">{title}</h3>
+      {paragraphs.filter(paragraph => paragraph.trim()).map((paragraph, index) => (
+        <p key={index}>{paragraph}</p>
+      ))}
+    </section>
+  );
+}
+
+function ResultReader({ entry, onClose }: { entry: ReaderEntry; onClose: () => void }) {
+  const { item, trigger, keyboard } = entry;
   const dialog = useRef<HTMLDialogElement>(null);
+  const back = useRef<HTMLButtonElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const unlockScroll = useRef<(() => void) | null>(null);
   const { state, retry } = useResearchRequest(item.id, getLegalDetail);
   useEffect(() => {
     const element = dialog.current;
-    if (element && !element.open) element.showModal();
-  }, []);
+    const initialFocus = keyboard ? back.current : title.current;
+    if (!element || !initialFocus) return;
+
+    unlockScroll.current = lockPageScroll();
+    if (!element.open) {
+      // Give the native dialog an explicit target before it runs its focusing steps.
+      initialFocus.setAttribute('autofocus', '');
+      element.showModal();
+      initialFocus.removeAttribute('autofocus');
+    }
+    if (document.activeElement !== initialFocus) initialFocus.focus({ preventScroll: true });
+
+    return releaseScroll;
+  }, [keyboard]);
+
+  function releaseScroll() {
+    unlockScroll.current?.();
+    unlockScroll.current = null;
+  }
+
+  function closeReader() {
+    releaseScroll();
+    trigger.focus({ preventScroll: true });
+    onClose();
+  }
+
   const detail = state.status === 'ready' ? state.data : item;
+  const fullText = state.status === 'ready' ? state.data.full_text : null;
 
   return (
-    <dialog ref={dialog} onClose={onClose} aria-labelledby="reader-title"
-      className="m-auto max-h-[94dvh] w-[calc(100%-1rem)] max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl backdrop:bg-slate-950/60 sm:max-h-[88dvh] sm:w-[calc(100%-3rem)]">
-      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 sm:px-8">
-        <button type="button" onClick={() => dialog.current?.close()} className="min-h-11 cursor-pointer rounded text-sm font-semibold text-slate-800 focus-visible:outline-2">← Back to Results</button>
+    <dialog ref={dialog} onClose={closeReader} aria-labelledby="reader-title" className={styles.reader}>
+      <div className={styles.readerToolbar}>
+        <button ref={back} type="button" onClick={() => dialog.current?.close()} className={styles.back}>
+          <ArrowLeft aria-hidden={true} size={17} /> Back to Results
+        </button>
       </div>
-      <div className="mx-auto max-w-[68ch] space-y-4 px-4 py-5 [overflow-wrap:anywhere] sm:px-8 sm:py-8">
-        <h2 id="reader-title" className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{detail.title}</h2>
-        <ItemMetadata item={detail} />
-        <SourceLink item={detail} />
-        {state.status === 'loading' && <p role="status">Loading details…</p>}
-        {state.status === 'error' && (
-          <RequestError message="Details are unavailable. You can still use the original-source link when available." retry={retry} />
-        )}
-        {state.status === 'ready' && state.data.full_text && (
-          <section aria-labelledby="source-text-title" className="border-t border-slate-200 pt-5">
-            <h3 id="source-text-title" className="mb-3 text-lg font-semibold">Source text</h3>
-            <p className="whitespace-pre-wrap text-base leading-7 text-slate-800">{state.data.full_text}</p>
-          </section>
-        )}
-        {(state.status !== 'ready' || !state.data.full_text) && detail.excerpt && (
-          <section aria-labelledby="excerpt-title" className="border-t border-slate-200 pt-5">
-            <h3 id="excerpt-title" className="mb-3 text-lg font-semibold">Excerpt</h3>
-            <p className="whitespace-pre-wrap text-base leading-7 text-slate-800">{detail.excerpt}</p>
-          </section>
-        )}
-        {state.status === 'ready' && !state.data.full_text && !detail.excerpt && (
-          <p className="text-sm text-slate-600">The source has no additional text for this update.</p>
-        )}
+      <div className={styles.readerScroll} tabIndex={0} role="region" aria-label="Document content">
+        <div className={styles.readerContent}>
+          <h2 ref={title} id="reader-title" tabIndex={-1} data-pointer-focus={!keyboard} className={styles.readerTitle}>{detail.title}</h2>
+          <ItemMetadata item={detail} />
+          <SourceLink item={detail} />
+          {state.status === 'loading' && <p role="status" className="text-sm text-slate-600">Loading details…</p>}
+          {state.status === 'error' && (
+            <RequestError message="Details are unavailable. You can still use the original-source link when available." retry={retry} />
+          )}
+          {fullText ? <SourceText title="Source text" text={fullText} /> : detail.excerpt && <SourceText title="Excerpt" text={detail.excerpt} />}
+          {state.status === 'ready' && !fullText && !detail.excerpt && (
+            <p className="text-sm text-slate-600">The source has no additional text for this update.</p>
+          )}
+        </div>
       </div>
     </dialog>
+  );
+}
+
+function FilterChip({ label, value, placeholder, options, onChange }: {
+  label: string;
+  value: string;
+  placeholder: string;
+  options: { value: string; label: string }[] | undefined;
+  onChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  const selectedLabel = options?.find(option => option.value === value)?.label ?? value;
+  return (
+    <label className={`${styles.chip} ${styles.selectChip}`} data-selected={Boolean(value)}>
+      <span aria-hidden="true" className="truncate">{selectedLabel || placeholder}</span>
+      <select aria-label={label} value={value} disabled={!options} onChange={onChange}>
+        <option value="">{placeholder}</option>
+        {options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    </label>
   );
 }
 
 function LegalHub() {
   const [draft, setDraft] = useState(emptyFilters);
   const [selection, setSelection] = useState({ filters: emptyFilters, offset: 0 });
-  const [reader, setReader] = useState<LegalItem | null>(null);
+  const [reader, setReader] = useState<ReaderEntry | null>(null);
   const [formError, setFormError] = useState('');
   const [sort, setSort] = useState('relevance');
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const searchInput = useRef<HTMLInputElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
   const results = useResearchRequest(queryFor(selection.filters, selection.offset), getLegalUpdates);
@@ -186,7 +263,8 @@ function LegalHub() {
   const hasMore = searchResults
     ? selection.offset + pageSize < (page?.items.length ?? 0)
     : Boolean(page?.has_more);
-  const activeFilters = Boolean(draft.court || draft.category || (!searching && (draft.date_from || draft.date_to)));
+  const hasDates = Boolean(draft.date_from || draft.date_to);
+  const activeFilters = Boolean(draft.court || draft.category || hasDates);
   const alreadyLoading = loading && queryFor(draft, 0) === queryFor(selection.filters, selection.offset)
     && selection.offset === 0;
 
@@ -197,6 +275,7 @@ function LegalHub() {
 
   function apply(nextFilters: typeof emptyFilters) {
     if (!nextFilters.q.trim() && nextFilters.date_from && nextFilters.date_to && nextFilters.date_from > nextFilters.date_to) {
+      setFilterPanelOpen(true);
       setFormError('The end date must be on or after the start date.');
       return;
     }
@@ -224,7 +303,7 @@ function LegalHub() {
     setDraft(next);
     setFormError('');
     apply(next);
-    searchInput.current?.focus();
+    searchInput.current?.focus({ preventScroll: true });
   }
 
   function changePage(delta: number) {
@@ -239,80 +318,89 @@ function LegalHub() {
   }
 
   return (
-    <section aria-labelledby="legal-title" className="mx-auto min-w-0 max-w-4xl space-y-4 sm:space-y-5">
-      <header>
-        <h1 id="legal-title" className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Legal Intelligence</h1>
-      </header>
+    <section aria-labelledby="legal-title" className={styles.hub}>
+      <div className={styles.hero}>
+        <header className={styles.heroHeader}>
+          <h1 id="legal-title">Legal Intelligence</h1>
+          <details className={styles.privacy}>
+            <summary aria-label="Search privacy information" title="Search privacy information">
+              <Info aria-hidden={true} size={18} />
+            </summary>
+            <p id="public-search-note">Use public information only. Search terms are sent to the legal aggregator.</p>
+          </details>
+          <p className={styles.subtitle}>Search judgments, statutes, and legal updates from Indian courts and publishers.</p>
+        </header>
 
-      <form role="search" onSubmit={submit} className="min-w-0 space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-2 lg:z-20">
-        <div className="flex min-w-0 gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search aria-hidden={true} size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input ref={searchInput} type="search" maxLength={200} value={draft.q} onChange={event => edit('q', event.target.value)}
-              className={`${inputStyle} pl-9 text-base [&::-webkit-search-cancel-button]:appearance-none ${draft.q ? 'pr-11' : ''}`}
-              placeholder="Statute, topic, or citation" aria-label="Search legal updates" aria-describedby="public-search-note" />
-            {draft.q && <button type="button" aria-label="Clear search" onClick={clearSearch}
-              className="absolute inset-y-0 right-0 grid min-h-11 w-11 cursor-pointer place-items-center rounded-lg text-slate-600 focus-visible:outline-2">
+        <form role="search" onSubmit={submit} className={styles.searchForm}>
+          <div className={styles.searchBar}>
+            <Search aria-hidden={true} size={18} className={styles.searchLeadingIcon} />
+            <input ref={searchInput} type="search" enterKeyHint="search" maxLength={200} value={draft.q}
+              onChange={event => edit('q', event.target.value)} placeholder="Statute, topic, or citation"
+              aria-label="Search legal updates" aria-describedby="public-search-note" />
+            {draft.q && <button type="button" aria-label="Clear search" onClick={clearSearch} className={styles.clearSearch}>
               <X aria-hidden={true} size={17} />
             </button>}
+            <button type="submit" aria-label="Search" disabled={alreadyLoading} className={`${styles.submit} ${styles.primary}`}>
+              <Search aria-hidden={true} size={18} /> <span>Search</span>
+            </button>
           </div>
-          <button type="submit" disabled={alreadyLoading} className={`${primary} shrink-0 px-3 sm:px-4`}>Search</button>
-        </div>
-        <p id="public-search-note" className="text-xs leading-relaxed text-slate-600">
-          Use public information only. Search terms are sent to the legal aggregator.
-        </p>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <select aria-label="Court" className={`${chipStyle} w-fit cursor-pointer appearance-none truncate ${draft.court ? 'border-amber-500 bg-amber-50 text-slate-950' : 'border-slate-300 bg-white text-slate-700'}`}
-              value={draft.court} disabled={!options} onChange={event => selectFilter('court', event.target.value)}>
-              <option value="">All courts</option>
-              {options?.courts.map(court => <option key={court.code} value={court.code}>{court.name}</option>)}
-            </select>
-            <select aria-label="Category" className={`${chipStyle} w-fit cursor-pointer appearance-none truncate ${draft.category ? 'border-amber-500 bg-amber-50 text-slate-950' : 'border-slate-300 bg-white text-slate-700'}`}
-              value={draft.category} disabled={!options} onChange={event => selectFilter('category', event.target.value)}>
-              <option value="">All categories</option>
-              {options?.categories.map(category => <option key={category.name}>{category.name}</option>)}
-            </select>
-          {activeFilters && <button type="button" onClick={clearFilters} className="min-h-11 cursor-pointer rounded px-2 text-sm font-semibold text-slate-700 underline underline-offset-4 focus-visible:outline-2">Clear filters</button>}
-        </div>
-          {!searching && (
-            <details>
-              <summary className={`${chipStyle} flex w-fit cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden ${draft.date_from || draft.date_to ? 'border-amber-500 bg-amber-50' : 'border-slate-300 bg-white text-slate-700'}`}>
-                Date range{(draft.date_from || draft.date_to) && ' (set)'}
-              </summary>
-              <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2">
-              <label className="min-w-0 space-y-1.5 text-sm font-medium">
-                <span>From date</span>
-                <input type="date" className={inputStyle} value={draft.date_from} onChange={event => edit('date_from', event.target.value)} />
-              </label>
-              <label className="min-w-0 space-y-1.5 text-sm font-medium">
-                <span>To date</span>
-                <input type="date" className={inputStyle} value={draft.date_to} onChange={event => edit('date_to', event.target.value)} />
-              </label>
-              </div>
-              <button type="button" className={`${secondary} mt-2`} onClick={() => apply(draft)}>Apply dates</button>
-            </details>
+          <div className={styles.chipRow}>
+            <button type="button" className={styles.chip} data-selected={filterPanelOpen || (hasDates && !searching)}
+              aria-expanded={filterPanelOpen} aria-controls="legal-filter-panel" onClick={() => setFilterPanelOpen(open => !open)}>
+              <SlidersHorizontal aria-hidden={true} size={15} /> Filters
+            </button>
+            <FilterChip label="Court" placeholder="All courts" value={draft.court}
+              options={options?.courts.map(court => ({ value: court.code, label: court.name }))}
+              onChange={event => selectFilter('court', event.target.value)} />
+            <FilterChip label="Category" placeholder="All categories" value={draft.category}
+              options={options?.categories.map(category => ({ value: category.name, label: category.name }))}
+              onChange={event => selectFilter('category', event.target.value)} />
+            {activeFilters && <button type="button" onClick={clearFilters} className={styles.clearFilters}>Clear filters</button>}
+          </div>
+
+          <div id="legal-filter-panel" className={styles.filterPanel} hidden={!filterPanelOpen}>
+            {filterPanelOpen && (
+              <fieldset className="min-w-0">
+                <legend className="mb-2 text-sm font-semibold text-slate-950">Date range</legend>
+                {searching ? <p className="text-sm text-slate-700">Date filters apply when browsing without a search term.</p> : (
+                  <div className={styles.dateFields}>
+                    <label className="min-w-0 space-y-1 text-sm font-medium">
+                      <span>From date</span>
+                      <input type="date" className={inputStyle} value={draft.date_from} onChange={event => edit('date_from', event.target.value)} />
+                    </label>
+                    <label className="min-w-0 space-y-1 text-sm font-medium">
+                      <span>To date</span>
+                      <input type="date" className={inputStyle} value={draft.date_to} onChange={event => edit('date_to', event.target.value)}
+                        aria-invalid={Boolean(formError)} aria-describedby={formError ? 'legal-date-error' : undefined} />
+                    </label>
+                    <button type="button" className={secondary} onClick={() => apply(draft)}>Apply dates</button>
+                  </div>
+                )}
+                {formError && <p id="legal-date-error" role="alert" className="mt-2 text-sm text-rose-700">{formError}</p>}
+              </fieldset>
+            )}
+          </div>
+          {filters.state.status === 'error' && (
+            <RequestError message="Court and category filters are temporarily unavailable." retry={filters.retry} />
           )}
-        {filters.state.status === 'error' && (
-          <RequestError message="Court and category filters are temporarily unavailable." retry={filters.retry} />
-        )}
-        {formError && <p role="alert" className="text-sm text-rose-700">{formError}</p>}
-      </form>
+        </form>
+      </div>
 
       {loading && <p role="status" className="text-sm text-slate-600">Loading legal updates…</p>}
-      <section aria-labelledby="updates-title" aria-busy={loading} className="space-y-3">
+      <section aria-labelledby="updates-title" aria-busy={loading} className="min-w-0 space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <h2 id="updates-title" ref={resultsHeading} tabIndex={-1} className="scroll-mt-36 text-lg font-semibold tracking-tight">Legal Updates</h2>
-          {searchResults && page && <select aria-label="Sort loaded search results" className={`${chipStyle} border-slate-300 bg-white text-slate-700`}
+          <h2 id="updates-title" ref={resultsHeading} tabIndex={-1} className="scroll-mt-4 text-lg font-semibold tracking-tight text-slate-950">Legal Updates</h2>
+          {searchResults && page && <select aria-label="Sort loaded search results" className={styles.sort}
             value={sort} disabled={loading} onChange={event => { setSort(event.target.value); setSelection(current => ({ ...current, offset: 0 })); }}>
             <option value="relevance">Relevance</option>
             <option value="newest">Newest in loaded results</option>
           </select>}
         </div>
         {loading && !page && (
-          <div aria-hidden="true" className="space-y-3">
+          <div aria-hidden="true" className="space-y-2.5">
             {[0, 1, 2].map(index => (
-              <div key={index} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 motion-safe:animate-pulse">
+              <div key={index} className={`${styles.card} motion-safe:animate-pulse`}>
                 <div className="h-5 w-3/4 rounded bg-slate-200" />
                 <div className="h-3 w-1/2 rounded bg-slate-100" />
                 <div className="h-3 w-full rounded bg-slate-100" />
@@ -330,10 +418,10 @@ function LegalHub() {
                 No legal updates found. Try a different search term or clear the filters.
               </p>
             ) : (
-              <ul className="space-y-3">
+              <ul role="list" className="space-y-2.5">
                 {visibleItems.map(item => (
                   <li key={item.id}>
-                    <ResultCard item={item} open={() => setReader(item)} />
+                    <ResultCard item={item} open={setReader} />
                   </li>
                 ))}
               </ul>
@@ -350,7 +438,7 @@ function LegalHub() {
           </>
         )}
       </section>
-      {reader && <ResultReader item={reader} onClose={() => setReader(null)} />}
+      {reader && <ResultReader entry={reader} onClose={() => setReader(null)} />}
     </section>
   );
 }
