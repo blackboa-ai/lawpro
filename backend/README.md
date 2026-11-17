@@ -73,8 +73,10 @@ cp .env.example .env
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | Database connection string | `sqlite:///./lawpro.db` |
-| `SECRET_KEY` | JWT signing secret (generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) | - |
+| `SECRET_KEY` | Dedicated JWT signing secret encoded as hex or unpadded URL-safe Base64 from at least 32 secure random bytes | Required |
 | `FRONTEND_HOST` | Frontend URL for CORS | `http://localhost:3000` |
+
+Generate each environment's signing key privately with a cryptographically secure generator such as Python's `secrets.token_urlsafe(32)` or `secrets.token_hex(32)`. Store the result only in that environment's secret settings or its ignored local `.env`. The application checks the encoding, minimum byte count, and obvious weak patterns. Confirm the source of the randomness separately.
 
 ### PostgreSQL Configuration
 
@@ -177,6 +179,6 @@ See the main [README.md](../README.md) and [docs/DEPLOYMENT.md](../docs/DEPLOYME
 ## Security Notes
 
 - Passwords are hashed using bcrypt before storage
-- JWT tokens expire after `ACCESS_TOKEN_EXPIRE_MINUTES` (default: 30 minutes)
+- JWTs use HS256 and expire after 30 minutes.
 - User data is isolated by `user_id` in all queries
 - No sensitive data is stored in the codebase

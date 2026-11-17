@@ -44,9 +44,9 @@ LawPro uses a free-tier deployment stack:
    - **Start Command**: `gunicorn -w 2 -k uvicorn.workers.UvicornWorker app.main:app`
 5. Add Environment Variables:
    - `DATABASE_URL` - (Set after database creation)
-   - `SECRET_KEY` - Generate with: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-   - `ALGORITHM` - `HS256`
-   - `ACCESS_TOKEN_EXPIRE_MINUTES` - `1440` (24 hours)
+   - `SECRET_KEY` - Use a dedicated signing key generated privately from at least 32 secure random bytes. Use hex or unpadded URL-safe Base64, such as Python's `secrets.token_hex(32)` or `secrets.token_urlsafe(32)`.
+   - `ALGORITHM` - `HS256` only.
+   - `ACCESS_TOKEN_EXPIRE_MINUTES` - `30` only.
    - `BACKEND_HOST` - `https://lawpro-backend.onrender.com`
    - `FRONTEND_HOST` - `https://lawpro.vercel.app` (will be set after frontend deployment)
 
@@ -200,7 +200,7 @@ If migrations fail, check:
 ## Security Notes
 
 - Never commit `.env` files with real secrets
-- Use strong `SECRET_KEY` values
+- Use a different signing key in each environment.
 - Enable password hashing with bcrypt
-- JWT tokens expire after configured time
+- JWT access tokens expire after 30 minutes.
 - User data is isolated by `user_id` in all queries

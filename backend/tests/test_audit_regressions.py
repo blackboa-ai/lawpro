@@ -1,6 +1,7 @@
 """Audit regression coverage using only a disposable in-memory database."""
 
 from datetime import date, datetime, timedelta, timezone
+from secrets import token_hex, token_urlsafe
 
 import pytest
 from fastapi.testclient import TestClient
@@ -138,13 +139,16 @@ def test_registered_user_authentication_and_case_isolation(client):
     # Exercise real JWT verification instead of the fixture's synthetic case owner.
     with pytest.MonkeyPatch.context() as patch:
         patch.delitem(app.dependency_overrides, get_current_user)
+        before_login = int(datetime.now(timezone.utc).timestamp())
         login = client.post("/api/v1/auth/login", data={"username": email, "password": password})
+        after_login = int(datetime.now(timezone.utc).timestamp())
         assert login.status_code == 200
         assert login.json()["token_type"] == "bearer"
         token = login.json()["access_token"]
         claims = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         assert claims["sub"] == str(registration.json()["id"])
-        assert claims["exp"] > datetime.now(timezone.utc).timestamp()
+        assert jwt.get_unverified_header(token)["alg"] == "HS256"
+        assert before_login + 1800 <= claims["exp"] <= after_login + 1800
         headers = {"Authorization": f"Bearer {token}"}
         assert client.get("/api/v1/auth/me", headers=headers).json()["email"] == email
         assert client.get("/api/v1/cases/", headers=headers).json() == []
@@ -168,6 +172,7 @@ def test_rejects_jwt_algorithm_confusion_and_malformed_segments(client, monkeypa
     monkeypatch.delitem(app.dependency_overrides, get_current_user)
     claims = {"sub": "1", "exp": datetime.now(timezone.utc) + timedelta(minutes=1)}
     valid_token = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    assert client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {valid_token}"}).status_code == 200
     _, payload, signature = valid_token.split(".")
     none_header = base64url_encode(b'{"alg":"none","typ":"JWT"}').decode()
     invalid_tokens = (
@@ -201,11 +206,50 @@ def test_rejects_jwt_without_valid_expiration(client, monkeypatch, expiration):
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
-def test_settings_reject_empty_jwt_signing_secret():
+@pytest.mark.parametrize("generate", [token_hex, token_urlsafe], ids=["hex", "base64url"])
+def test_settings_accept_generated_hs256_key_without_changing_it(generate):
+    key = generate(32)
+    configured = Settings(_env_file=None, SECRET_KEY=key, ALGORITHM="HS256")
+    assert configured.SECRET_KEY == key
+    assert configured.ACCESS_TOKEN_EXPIRE_MINUTES == 30
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "",
+        "abcd",
+        "your-secret-key-change-this-in-production",
+        "change-me-" + "x" * 33,
+        "00" * 32,
+        bytes(range(32)).hex(),
+        (bytes(range(0, 48, 3)) * 2).hex(),
+        b"an encoded human-readable phrase".hex(),
+        # DER SubjectPublicKeyInfo envelope containing a synthetic Ed25519 public key.
+        "302a300506032b6570032100" + bytes(range(32)).hex(),
+    ],
+    ids=["empty", "short", "example", "placeholder", "zeros", "sequence", "repeated",
+         "encoded-phrase", "der-public-key"],
+)
+def test_settings_reject_invalid_jwt_signing_secret(key):
+    with pytest.raises(ValidationError, match="SECRET_KEY") as rejected:
+        Settings(_env_file=None, SECRET_KEY=key)
+    if key:
+        assert key not in str(rejected.value)
+
+
+def test_settings_require_jwt_signing_secret(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
     with pytest.raises(ValidationError, match="SECRET_KEY"):
-        Settings(
-            _env_file=None,
-            DATABASE_URL="postgresql://127.0.0.1:1/lawpro_test_placeholder",
-            FRONTEND_HOST="http://localhost:3000",
-            SECRET_KEY="",
-        )
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("algorithm", ["HS384", "RS256", "none"])
+def test_settings_reject_other_jwt_algorithms(algorithm):
+    with pytest.raises(ValidationError, match="ALGORITHM"):
+        Settings(_env_file=None, ALGORITHM=algorithm)
+
+
+def test_settings_reject_nonstandard_jwt_lifetime():
+    with pytest.raises(ValidationError, match="ACCESS_TOKEN_EXPIRE_MINUTES"):
+        Settings(_env_file=None, ACCESS_TOKEN_EXPIRE_MINUTES="1440")

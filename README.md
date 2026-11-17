@@ -83,7 +83,7 @@ $env:DATABASE_URL = 'sqlite:///./lawpro-dev.db'
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-Check that any existing backend configuration is suitable for development. The explicit URL above targets a separate local SQLite file. The API defaults to port 8000 and exposes interactive docs at [localhost:8000/docs](http://localhost:8000/docs).
+Before starting the API, replace the example signing key in your local `.env` with a dedicated development key generated as described in the [backend setup](backend/README.md#environment-variables). The explicit database URL above targets a separate local SQLite file. The API defaults to port 8000 and exposes interactive docs at [localhost:8000/docs](http://localhost:8000/docs).
 
 ### Frontend (Windows PowerShell)
 

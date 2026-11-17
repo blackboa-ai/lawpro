@@ -256,4 +256,4 @@ const newCase = await createCase({
 }
 ```
 
-Token expires based on `ACCESS_TOKEN_EXPIRE_MINUTES` setting (default: 30 minutes for development, 24 hours recommended for production).
+Access tokens are signed with HS256 and expire after 30 minutes.
