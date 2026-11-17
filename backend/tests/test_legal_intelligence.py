@@ -121,6 +121,27 @@ def test_search_normalizes_without_forwarding_identity_or_accessing_cases(resear
         assert jwt not in str(request.url)
 
 
+def test_listing_accepts_page_number_envelope_and_rejects_mismatched_page(research):
+    client, service, *_ = research
+    source = LegalSourceFixture()
+
+    def page_number_response(request):
+        response = source(request).json()
+        limit, offset = response.pop("limit"), response.pop("offset")
+        # Simulate an upstream that returns its first page again on a later request.
+        page = 1 if offset == 12 else offset // limit + 1
+        return httpx.Response(200, json={**response, "page": page, "page_size": limit})
+
+    service.transport = httpx.MockTransport(page_number_response)
+    first = client.get(f"{ROOT}/updates", params={"limit": 6})
+    assert first.status_code == 200
+    assert first.json()["has_more"]
+    second = client.get(f"{ROOT}/updates", params={"limit": 6, "offset": 6})
+    assert second.status_code == 200
+    assert [item["id"] for item in second.json()["items"]] == [row["id"] for row in ITEMS[6:12]]
+    assert client.get(f"{ROOT}/updates", params={"limit": 6, "offset": 12}).status_code == 502
+
+
 def test_detail_normalizes_and_rejects_invalid_ids(research):
     client, _, requests, *_ = research
     item_id = ITEMS[0]["id"]

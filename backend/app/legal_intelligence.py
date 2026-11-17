@@ -105,8 +105,19 @@ class UpstreamPage(BaseModel):
 
 class FeedPage(UpstreamPage):
     data: list[LegalItem] = Field(max_length=25)
-    limit: int
-    offset: int
+    limit: int | None = Field(default=None, ge=1)
+    offset: int | None = Field(default=None, ge=0)
+    page: int | None = Field(default=None, ge=1)
+    page_size: int | None = Field(default=None, ge=1)
+
+    def matches(self, limit: int, offset: int) -> bool:
+        if self.limit is not None or self.offset is not None:
+            return (self.limit, self.offset) == (limit, offset)
+        return (
+            self.page is not None
+            and self.page_size == limit
+            and (self.page - 1) * limit == offset
+        )
 
 
 class SearchPage(UpstreamPage):
@@ -208,7 +219,7 @@ class LegalAggregator:
                 total = len(upstream.results)
             else:
                 upstream = await self._model(FeedPage, "/judgments", params)
-                if upstream.offset != offset or upstream.limit != limit:
+                if not upstream.matches(limit, offset):
                     raise AggregatorError(502, "The legal source returned an unexpected page.")
                 items = upstream.data
                 total = upstream.total
