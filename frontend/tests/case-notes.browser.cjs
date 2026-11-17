@@ -50,11 +50,14 @@ async function seed(apiOrigin) {
   const otherToken = await account();
   const otherCase = await create(otherToken, { case_title: 'Private case', description: 'Private notes' });
   await create(token, { case_title: 'No notes case', description: ' \n ' });
-  await create(token, { case_title: title, description: notes, next_hearing_date: '2099-01-15' });
+  const ownCase = await create(token, {
+    case_title: title, description: notes, case_number: '2026/12', court_name: 'District Court',
+    next_hearing_date: '2099-01-15',
+  });
   const headers = { Authorization: `Bearer ${token}` };
   assert.equal((await request(`cases/${otherCase.id}`, { headers })).status, 404);
   assert.equal((await request('cases/')).status, 401);
-  return token;
+  return { token, ownCase };
 }
 
 async function checkLayout(browser, frontend, token, width, height, mobile) {
@@ -105,9 +108,17 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   assert.ok(await region.evaluate(element => element.scrollTop > 0));
 
   const box = await modal.boundingBox();
-  assert.ok(box.x >= 15 && box.y >= 15 && box.x + box.width <= width - 15 && box.y + box.height <= height - 15);
-  assert.ok(Math.abs(box.x + box.width / 2 - width / 2) < 1, `Horizontal dialog alignment: ${JSON.stringify(box)}`);
-  assert.ok(Math.abs(box.y + box.height / 2 - height / 2) < 1, `Vertical dialog alignment: ${JSON.stringify(box)}`);
+  if (mobile) {
+    assert.equal(box.x, 0);
+    assert.equal(box.width, width);
+    assert.ok(Math.abs(box.y + box.height - height) < 1, 'The sheet sits at the bottom');
+    assert.ok(Math.abs(box.height - height * 0.9) < 1, 'The sheet uses 90% of the viewport height');
+  } else {
+    assert.equal(box.width, 600);
+    assert.ok(Math.abs(box.x + box.width / 2 - width / 2) < 1, 'The modal is horizontally centered');
+    assert.ok(Math.abs(box.y + box.height / 2 - height / 2) < 1, 'The modal is vertically centered');
+  }
+  assert.equal(await modal.evaluate(element => getComputedStyle(element).borderTopWidth), '0px');
   assert.ok((await close.boundingBox()).height >= 44 && (await edit.boundingBox()).height >= 44);
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).position), 'fixed');
   const previewBehindModal = await preview.boundingBox();
@@ -142,25 +153,86 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
   return page;
 }
 
-async function checkCaseActions(page) {
+async function checkNotesEditing(page, token, ownCase) {
   const preview = page.getByRole('button', { name: `Case Notes for ${title}`, exact: true });
-  await preview.click();
-  await page.getByRole('button', { name: 'Edit Notes', exact: true }).click();
-  const editor = page.getByRole('dialog', { name: 'Edit case', exact: true });
-  const field = editor.getByRole('textbox', { name: 'Case notes' });
+  const modal = page.getByRole('dialog', { name: `Case Notes ${title}`, exact: true });
+  const edit = modal.getByRole('button', { name: 'Edit Notes', exact: true });
+  const field = modal.getByRole('textbox', { name: 'Notes', exact: true });
+  const cancel = modal.getByRole('button', { name: 'Cancel', exact: true });
+  const save = modal.getByRole('button', { name: 'Save', exact: true });
+  const close = modal.getByRole('button', { name: 'Close', exact: true });
+  const savedText = modal.getByRole('region').locator('p').last();
+
+  await preview.tap();
+  await edit.tap();
+  assert.equal(await page.getByRole('dialog', { name: 'Edit case', exact: true }).count(), 0);
   assert.equal(await field.inputValue(), notes);
-  await field.fill(savedNotes);
-  await editor.getByRole('button', { name: 'Save changes' }).click();
+  assert.equal(await field.evaluate(element => element === document.activeElement), true);
+  assert.equal(await save.isDisabled(), true);
+  const footer = await save.boundingBox();
+  await field.fill('One line');
+  const short = await field.boundingBox();
+  await field.fill('Wrapped line for the growing editor.\n'.repeat(8));
+  assert.ok((await field.boundingBox()).height > short.height, 'The textarea expands with the draft');
+  await field.fill(`${notes}\nUnsaved text`);
+  assert.ok(await field.evaluate(element => element.scrollHeight > element.clientHeight));
+  assert.equal((await save.boundingBox()).y, footer.y, 'Save stays visible as the draft expands');
+
+  page.once('dialog', confirmation => confirmation.dismiss());
+  await cancel.tap();
+  assert.equal(await field.inputValue(), `${notes}\nUnsaved text`);
+  page.once('dialog', confirmation => confirmation.accept());
+  await cancel.tap();
+  assert.equal(await savedText.textContent(), notes);
+  assert.equal(await edit.evaluate(element => element === document.activeElement), true);
+
+  await edit.tap();
+  await field.fill('Unsaved text');
+  page.once('dialog', confirmation => confirmation.dismiss());
+  await page.keyboard.press('Escape');
+  assert.equal(await field.inputValue(), 'Unsaved text');
+  page.once('dialog', confirmation => confirmation.accept());
+  await page.keyboard.press('Escape');
+  await modal.waitFor({ state: 'hidden' });
+
+  async function saveNotes(value, description) {
+    await field.fill(value);
+    const response = page.waitForResponse(res => res.url().endsWith(`/cases/${ownCase.id}`) && res.request().method() === 'PUT');
+    await save.tap();
+    const result = await response;
+    assert.equal(result.status(), 200);
+    assert.deepEqual(result.request().postDataJSON(), { description });
+    assert.equal(result.request().headers().authorization, `Bearer ${token}`);
+    const updated = await result.json();
+    for (const key of Object.keys(ownCase).filter(key => key !== 'description' && key !== 'updated_at')) {
+      assert.deepEqual(updated[key], ownCase[key], `${key} is preserved`);
+    }
+    await edit.waitFor();
+  }
+
+  await preview.tap();
+  await edit.tap();
+  await saveNotes(savedNotes, savedNotes);
+  assert.equal(await savedText.textContent(), savedNotes);
+  await close.tap();
   await preview.getByText('Updated first paragraph.', { exact: false }).waitFor();
   await page.reload();
-  await preview.click();
-  const modal = page.getByRole('dialog', { name: `Case Notes ${title}`, exact: true });
-  assert.equal(await modal.getByRole('region').locator('p').last().textContent(), savedNotes);
-  await modal.getByRole('button', { name: 'Close', exact: true }).click();
+  await preview.tap();
+  assert.equal(await savedText.textContent(), savedNotes);
+  await edit.tap();
+  await saveNotes('', null);
+  await modal.getByText('No notes yet.').waitFor();
+  await edit.tap();
+  await saveNotes(notes, notes);
+  await close.tap();
+}
 
+async function checkCaseActions(page) {
+  const preview = page.getByRole('button', { name: `Case Notes for ${title}`, exact: true });
+  const editor = page.getByRole('dialog', { name: 'Edit case', exact: true });
   const card = preview.locator('..');
   await card.getByRole('button', { name: 'Edit case', exact: true }).click();
-  assert.equal(await field.inputValue(), savedNotes);
+  assert.equal(await editor.getByRole('textbox', { name: 'Case notes' }).inputValue(), notes);
   await editor.getByRole('heading', { name: 'Hearing history' }).waitFor();
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
 
@@ -189,11 +261,15 @@ async function main() {
   const frontend = localOrigin(process.argv[2]);
   const api = localOrigin(process.argv[3]);
   const engine = process.env.BROWSER || 'chromium';
-  const token = await seed(api);
+  const { token, ownCase } = await seed(api);
   const browser = await playwright[engine].launch({ channel: process.env.CHANNEL });
   try {
     for (const [width, height] of [[320, 568], [375, 667], [390, 844], [430, 932], [844, 390]]) {
       const page = await checkLayout(browser, frontend, token, width, height, true);
+      if (width === 320 || width === 390) {
+        await checkNotesEditing(page, token, ownCase);
+        console.log(`${engine} ${width}×${height}: inline edit, discard, save, clear, and reload passed`);
+      }
       await page.close();
       console.log(`${engine} ${width}×${height}: notes preview and touch dialog passed`);
     }
@@ -201,7 +277,7 @@ async function main() {
     await scrolledDesktop.close();
     const page = await checkLayout(browser, frontend, token, 1440, 900, false);
     await checkCaseActions(page);
-    console.log(`${engine} desktop: keyboard, save/refresh, case actions, and ownership passed`);
+    console.log(`${engine} desktop: centered layout, keyboard, case actions, and ownership passed`);
   } finally {
     await browser.close();
   }

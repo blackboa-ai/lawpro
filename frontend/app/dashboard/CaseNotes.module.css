@@ -1,13 +1,30 @@
 .dialog {
-  --top: max(1rem, env(safe-area-inset-top));
-  --right: max(1rem, env(safe-area-inset-right));
-  --bottom: max(1rem, env(safe-area-inset-bottom));
-  --left: max(1rem, env(safe-area-inset-left));
   position: fixed;
-  inset: var(--top) var(--right) var(--bottom) var(--left);
-  width: min(36rem, calc(100% - var(--left) - var(--right)));
-  height: fit-content;
-  max-height: calc(100dvh - var(--top) - var(--bottom));
+  inset: auto 0 var(--sheet-bottom, 0px);
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  height: var(--sheet-height, 90dvh);
+  max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top)));
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  border-radius: 1rem 1rem 0 0;
+  outline: none;
+}
+
+@media (min-width: 640px) and (hover: hover), (min-width: 900px) {
+  .dialog {
+    --top: max(1rem, env(safe-area-inset-top));
+    --right: max(1rem, env(safe-area-inset-right));
+    --bottom: max(1rem, env(safe-area-inset-bottom));
+    --left: max(1rem, env(safe-area-inset-left));
+    inset: var(--top) var(--right) var(--bottom) var(--left);
+    margin: auto;
+    width: min(600px, calc(100% - var(--left) - var(--right)));
+    height: fit-content;
+    max-height: min(90dvh, calc(100dvh - var(--top) - var(--bottom)));
+    padding: 0;
+    border-radius: 1rem;
+  }
 }
 
 .dialog[open] {
@@ -15,12 +32,44 @@
   flex-direction: column;
 }
 
+.draft {
+  position: relative;
+}
+
+/* A hidden copy sizes the textarea as its text wraps, including trailing newlines. */
+.draft::after {
+  display: block;
+  content: attr(data-value) ' ';
+  visibility: hidden;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.draft::after,
+.draft textarea {
+  min-height: 7rem;
+  max-height: max(7rem, calc(var(--sheet-height, 90dvh) - 12rem - env(safe-area-inset-bottom)));
+  padding: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.draft textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overscroll-behavior: contain;
+  border-color: var(--color-slate-300);
+}
+
 .focus:focus:not(:focus-visible) {
   outline: none;
 }
 
 .focus:focus-visible {
-  outline: 2px solid var(--color-amber-700);
+  outline: 2px solid var(--color-blue-700);
 }
 
 .scrollLock {
