@@ -32,3 +32,16 @@
   resize: none;
   overscroll-behavior: contain;
 }
+
+.draft textarea:focus {
+  border-color: #526985;
+  box-shadow: inset 0 0 0 1px #526985;
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  .draft textarea:focus {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
