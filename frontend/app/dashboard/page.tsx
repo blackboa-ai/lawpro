@@ -1,13 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { getDashboardStats, getCasesPage, createCase, deleteCase, updateCase } from '@/lib/api';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import {
+  Calendar, CalendarDays, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Clock, Download,
+  Edit, FileText, Gavel, LogOut, Plus, Search, Trash2,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { Case, DashboardStats } from '@/types';
-import { Calendar, ChevronDown, Edit, LogOut, Plus, Trash2 } from 'lucide-react';
-import { CaseEditor } from './CaseEditor';
-import { CaseNotes } from './CaseNotes';
+import { getDashboardStats, getCasesPage, createCase, deleteCase, updateCase } from '@/lib/api';
 import { casesCsv, downloadFile, hearingCalendar } from '@/lib/caseExports';
+import type { Case, CaseStatus, DashboardStats } from '@/types';
+import { FloatingDialog } from '../FloatingDialog';
+import { CaseEditor, formatHearingDate } from './CaseEditor';
+import { CaseNotes } from './CaseNotes';
+import { ConfirmationDialog } from './ConfirmationDialog';
+import styles from './dashboard.module.css';
 
 const hearingRanges = [
   { label: 'Today', days: 1 },
@@ -15,39 +21,55 @@ const hearingRanges = [
   { label: 'All upcoming', days: 0 },
 ] as const;
 
+const statuses = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'ongoing', label: 'Ongoing' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'dismissed', label: 'Dismissed' },
+] as const;
+
+const metrics = [
+  { label: 'Total cases', key: 'total_cases', icon: FileText, tone: 'total' },
+  { label: 'Pending', key: 'pending_cases', icon: Clock, tone: 'pending' },
+  { label: 'Ongoing', key: 'ongoing_cases', icon: Gavel, tone: 'ongoing' },
+  { label: 'Completed', key: 'completed_cases', icon: CheckCircle, tone: 'completed' },
+] as const;
+
+type CaseDialog =
+  | { kind: 'create'; trigger: HTMLButtonElement }
+  | { kind: 'edit' | 'calendar' | 'delete'; trigger: HTMLButtonElement; item: Case };
+
+const pageSize = 25;
+
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const requestId = useRef(0);
-  const pageSize = 25;
   const [statusFilter, setStatusFilter] = useState('all');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [editingCase, setEditingCase] = useState<Case | null>(null);
-
   const [upcomingOnly, setUpcomingOnly] = useState(false);
-  const [hearingRange, setHearingRange] = useState<number>(0);
+  const [hearingRange, setHearingRange] = useState(0);
+  const [modal, setModal] = useState<CaseDialog | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const casesHeading = useRef<HTMLHeadingElement>(null);
 
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const rangeEnd = new Date(today + 'T00:00:00Z');
   rangeEnd.setUTCDate(rangeEnd.getUTCDate() + hearingRange);
   const endDate = rangeEnd.toISOString().slice(0, 10);
-  const upcomingCount = stats?.upcoming_hearings || 0;
-  const query = search.trim().toLowerCase();
-  const visibleCases = cases;
-  const hasFilters = upcomingOnly || query !== '' || statusFilter !== 'all';
+  const hasFilters = upcomingOnly || Boolean(search.trim()) || statusFilter !== 'all';
+  const pageCount = Math.ceil(total / pageSize);
 
-  const caseParams = (offset = 0) => {
+  const caseParams = (offset = 0, query = debouncedSearch) => {
     const params = new URLSearchParams({ offset: String(offset), limit: String(pageSize) });
-    if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+    if (query.trim()) params.set('search', query.trim());
     if (statusFilter !== 'all') params.set('case_status', statusFilter);
     if (upcomingOnly) {
       params.set('upcoming_from', today);
@@ -61,7 +83,7 @@ export default function DashboardPage() {
       const all: Case[] = [];
       let count = 0;
       do {
-        const result = await getCasesPage(caseParams(all.length));
+        const result = await getCasesPage(caseParams(all.length, search));
         count = result.total;
         all.push(...result.cases);
         if (!result.cases.length) break;
@@ -94,21 +116,22 @@ export default function DashboardPage() {
 
   const fetchData = async (refreshStats = false) => {
     const request = ++requestId.current;
+    setLoading(true);
     try {
       const [statsData, casesData] = await Promise.all([
-        refreshStats ? getDashboardStats(today) : Promise.resolve(null), getCasesPage(caseParams(page * pageSize))
+        refreshStats ? getDashboardStats(today) : Promise.resolve(null), getCasesPage(caseParams(page * pageSize)),
       ]);
       if (request !== requestId.current) return;
+      if (statsData) setStats(statsData);
       if (page > 0 && casesData.cases.length === 0) {
         setPage(Math.max(0, Math.ceil(casesData.total / pageSize) - 1));
         return;
       }
-      if (statsData) setStats(statsData);
       setError('');
       setCases(casesData.cases);
       setTotal(casesData.total);
-    } catch (err: any) {
-      if (request === requestId.current) setError(err.message);
+    } catch (err) {
+      if (request === requestId.current) setError(err instanceof Error ? err.message : 'Could not load cases.');
     } finally {
       if (request === requestId.current) setLoading(false);
     }
@@ -131,63 +154,39 @@ export default function DashboardPage() {
     });
   };
 
-  const handleCreateCase = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (creating) return;
-    const form = new FormData(e.currentTarget as HTMLFormElement);
-    const value = (name: string) => String(form.get(name) ?? '').trim();
-    const title = value('case_title');
-    if (!title) {
-      setCreateError('Enter a case title.');
-      return;
-    }
-    const hearingDate = value('next_hearing_date');
-    setCreating(true);
-    setCreateError('');
-    
-    try {
-      const newCase = await createCase({
-        case_title: title,
-        case_number: value('case_number') || null,
-        court_name: value('court_name') || null,
-        description: value('description') || null,
-        ...(hearingDate && { next_hearing_date: hearingDate }),
-      });
-      adjustStats(null, newCase);
-      setShowCreateModal(false);
-      const filtersChanged = upcomingOnly || statusFilter !== 'all' || page !== 0 || debouncedSearch !== '' || hearingRange !== 0;
-      clearFilters();
-      if (!filtersChanged) fetchData(true);
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Could not create the case. Try again.');
-    } finally {
-      setCreating(false);
-    }
+  const handleCreated = (newCase: Case) => {
+    adjustStats(null, newCase);
+    setModal(null);
+    const filtersChanged = upcomingOnly || statusFilter !== 'all' || page !== 0 || debouncedSearch !== '' || hearingRange !== 0;
+    clearFilters();
+    if (!filtersChanged) fetchData(true);
   };
 
-  const handleDeleteCase = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this case?')) {
-      try {
-        await deleteCase(id);
-        const removed = cases.find(c => c.id === id);
-        if (removed) adjustStats(removed, null);
-        setCases(current => current.filter(c => c.id !== id));
-        fetchData(true);
-      } catch (err: any) {
-        setError(err.message);
-      }
-    }
-  };
-
-  const handleStatusChange = async (caseId: number, newStatus: 'pending' | 'ongoing' | 'completed' | 'dismissed') => {
+  const handleDeleteCase = async (item: Case) => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError('');
     try {
-      const updated = await updateCase(caseId, { status: newStatus });
-      const previous = cases.find(c => c.id === caseId);
-      if (previous) adjustStats(previous, updated);
-      setCases(current => current.map(c => c.id === caseId ? updated : c));
+      await deleteCase(item.id);
+      adjustStats(item, null);
+      setCases(current => current.filter(caseItem => caseItem.id !== item.id));
+      setModal(null);
       fetchData(true);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete the case. Try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (item: Case, status: CaseStatus) => {
+    try {
+      const updated = await updateCase(item.id, { status });
+      adjustStats(item, updated);
+      setCases(current => current.map(caseItem => caseItem.id === item.id ? updated : caseItem));
+      fetchData(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change the case status.');
     }
   };
 
@@ -196,367 +195,318 @@ export default function DashboardPage() {
     fetchData();
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    );
-  }
+  const changePage = (nextPage: number) => {
+    setPage(nextPage);
+    casesHeading.current?.focus({ preventScroll: true });
+    casesHeading.current?.scrollIntoView({ block: 'start' });
+  };
+
+  const closeDialog = () => setModal(null);
+  const calendarDate = modal?.kind === 'calendar' ? modal.item.next_hearing_date : null;
 
   return (
-    <div>
-      <div className="mb-5 flex items-start justify-between gap-3 sm:mb-8">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-4xl">Dashboard</h1>
-          <p className="mt-1 wrap-anywhere text-sm text-slate-600">Welcome, {user?.full_name || user?.email}</p>
-        </div>
-        <button
-          onClick={logout}
-          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-        >
-          <LogOut size={16} aria-hidden={true} />
-          Logout
-        </button>
-      </div>
-
-      {error && (
-        <div role="alert" className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:mb-8 sm:grid-cols-5 sm:gap-3">
-        <StatCard title="Total Cases" value={stats?.total_cases || 0} color="blue" />
-        <StatCard title="Pending" value={stats?.pending_cases || 0} color="yellow" />
-        <StatCard title="Ongoing" value={stats?.ongoing_cases || 0} color="blue" />
-        <StatCard title="Completed" value={stats?.completed_cases || 0} color="green" />
-        <button
-          type="button"
-          aria-pressed={upcomingOnly}
-          aria-controls="case-list"
-          onClick={() => { setPage(0); setUpcomingOnly(current => !current); }}
-          className="col-span-2 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-left text-violet-950 hover:bg-violet-100 aria-pressed:border-violet-600 aria-pressed:bg-violet-100 sm:col-span-1 sm:flex-col sm:items-start sm:justify-center sm:p-4"
-        >
-          <span className="text-sm font-medium">Upcoming hearings</span>
-          <span className="text-xl font-semibold tabular-nums">{upcomingCount}</span>
-        </button>
-      </div>
-
-      {/* Cases List */}
-      <section id="case-list" aria-labelledby="case-list-heading" className="min-[641px]:rounded-2xl min-[641px]:border min-[641px]:border-slate-200 min-[641px]:bg-white min-[641px]:p-6 min-[641px]:shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-5 sm:gap-3">
-          <h2 id="case-list-heading" className="text-xl font-semibold tracking-tight">Your cases</h2>
-          <div className="flex flex-wrap items-center gap-2">
-          {visibleCases.length > 0 && (
-            <button
-              type="button"
-              onClick={exportCases}
-              className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium hover:bg-slate-50"
-            >
-              {hasFilters ? 'Export filtered CSV' : 'Export CSV'}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              setCreateError('');
-              setShowCreateModal(true);
-            }}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
-          >
-            <Plus aria-hidden={true} size={16} /> New case
+    <div className={`${styles.dashboard} workspace-focus`}>
+      <section aria-labelledby="dashboard-heading" className={styles.overview}>
+        <div className={styles.overviewHeading}>
+          <h1 id="dashboard-heading">Dashboard</h1>
+          <button type="button" onClick={logout} className="workspace-control workspace-secondary shrink-0">
+            <LogOut size={16} aria-hidden={true} /> Logout
           </button>
+          {(user?.full_name || user?.email) && <p title={user.full_name || user.email}>Welcome, {user.full_name || user.email}</p>}
+        </div>
+        <div className={styles.statistics}>
+          {metrics.map(({ label, key, icon: Icon, tone }) => (
+            <div className={styles.stat} data-tone={tone} key={key}>
+              <div className={styles.statIcon} aria-hidden="true"><Icon size={16} /></div>
+              <div className="min-w-0">
+                <p className={styles.statLabel}>{label}</p>
+                <p className={styles.statValue}>{stats?.[key] ?? '–'}</p>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            aria-pressed={upcomingOnly}
+            aria-controls="case-list"
+            onClick={() => { setPage(0); setUpcomingOnly(current => !current); }}
+            className={`${styles.stat} ${styles.hearings}`}
+          >
+            <span className={styles.statIcon}><CalendarDays size={16} aria-hidden={true} /></span>
+            <span className={styles.hearingCount}>
+              <span className={styles.statLabel}>Upcoming hearings</span>
+              <span className={styles.statValue}>{stats?.upcoming_hearings ?? '–'}</span>
+            </span>
+            <ChevronRight size={15} aria-hidden={true} className="hidden sm:block" />
+          </button>
+        </div>
+      </section>
+
+      {error && <p role="alert" className="workspace-error mt-3">{error}</p>}
+
+      <section id="case-list" className={styles.cases} aria-labelledby="cases-heading">
+        <div className={styles.caseHeading}>
+          <h2 id="cases-heading" tabIndex={-1} ref={casesHeading}>Your cases</h2>
+          <div className={styles.caseTools}>
+            {cases.length > 0 && (
+              <button type="button" onClick={exportCases} className="workspace-control workspace-secondary"
+                aria-label={hasFilters ? 'Export filtered CSV' : 'Export CSV'}>
+                <Download size={16} aria-hidden={true} />
+                <span className="hidden sm:inline">{hasFilters ? 'Export filtered CSV' : 'Export CSV'}</span>
+                <span className="sm:hidden">CSV</span>
+              </button>
+            )}
+            <button type="button" aria-haspopup="dialog" className="workspace-control workspace-primary"
+              onClick={event => setModal({ kind: 'create', trigger: event.currentTarget })}>
+              <Plus size={17} aria-hidden={true} /> New case
+            </button>
           </div>
         </div>
 
-        {(stats?.total_cases || 0) > 0 && (
-          <div className="mb-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-2 sm:mb-5 sm:grid-cols-[minmax(0,1fr)_11rem] sm:gap-3">
-            <label className="min-w-0 text-sm font-medium text-slate-700">
+        {(stats?.total_cases ?? 0) > 0 && (
+          <div className={styles.toolbar}>
+            <label className="workspace-label">
               Search cases
-              <input
-                type="search"
-                value={search}
-                onChange={event => setSearch(event.target.value)}
-                placeholder="Case title, number, or court"
-                className="mt-1 block w-full rounded-lg border border-slate-300 min-h-11 px-3 py-2.5 text-base"
-              />
+              <span className={styles.search}>
+                <Search size={17} aria-hidden={true} />
+                <input className="workspace-field" type="search" value={search}
+                  onChange={event => setSearch(event.target.value)} placeholder="Title, no., court" />
+              </span>
             </label>
-            <label className="min-w-0 text-sm font-medium text-slate-700">
+            <label className="workspace-label">
               Filter by status
-              <select
-                value={statusFilter}
-                onChange={event => { setPage(0); setStatusFilter(event.target.value); }}
-                className="mt-1 block w-full rounded-lg border border-slate-300 bg-white min-h-11 px-3 py-2.5 text-base"
-              >
+              <select className="workspace-field" value={statusFilter}
+                onChange={event => { setPage(0); setStatusFilter(event.target.value); }}>
                 <option value="all">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-                <option value="dismissed">Dismissed</option>
+                <StatusOptions />
               </select>
             </label>
           </div>
         )}
+
         {upcomingOnly && (
-          <div role="group" aria-label="Hearing date range" className="mb-4 flex flex-wrap gap-2">
+          <div role="group" aria-label="Hearing date range" className="mt-2 flex flex-wrap gap-1.5">
             {hearingRanges.map(range => (
-              <button
-                key={range.days}
-                type="button"
-                aria-pressed={hearingRange === range.days}
-                onClick={() => { setPage(0); setHearingRange(range.days); }}
-                className="min-h-11 rounded-lg border border-violet-200 px-3 text-sm font-medium text-violet-950 aria-pressed:border-violet-600 aria-pressed:bg-violet-100"
-              >
+              <button type="button" key={range.days} aria-pressed={hearingRange === range.days}
+                className={styles.range} onClick={() => { setPage(0); setHearingRange(range.days); }}>
                 {range.label}
               </button>
             ))}
           </div>
         )}
+
         {hasFilters && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3">
-            <p role="status" className="text-sm text-slate-600">{total} of {stats?.total_cases || 0} cases</p>
-            <button type="button" onClick={clearFilters} className="min-h-11 text-sm font-medium text-violet-800 underline underline-offset-4">Clear filters</button>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3">
+            <p role="status" className="text-sm text-[var(--workspace-muted)]">{loading ? 'Updating cases…' : `${total} of ${stats?.total_cases ?? 0} cases`}</p>
+            <button type="button" onClick={clearFilters} className="workspace-control underline underline-offset-4">
+              Clear filters
+            </button>
           </div>
         )}
-        {(stats?.total_cases || 0) === 0 ? (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center">
-            <p className="font-semibold">No cases yet</p>
-            <p className="mt-1 text-sm text-slate-600">Select New case to add your first case.</p>
-          </div>
-        ) : visibleCases.length === 0 ? (
-          <p role="status" className="py-8 text-center text-sm text-slate-600">No cases match your search and filters.</p>
-        ) : (
-          <div className="space-y-2.5 sm:space-y-3">
-            {visibleCases.map(caseItem => (
-              <CaseCard
-                key={caseItem.id}
-                case={caseItem}
-                onEdit={() => setEditingCase(caseItem)}
-                onNotesSaved={handleNotesSaved}
-                onUpdate={handleStatusChange}
-                onDelete={handleDeleteCase}
-              />
-            ))}
-          </div>
-        )}
-        {total > pageSize && (
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">Previous</button>
-            <span className="text-sm">Page {page + 1} of {Math.ceil(total / pageSize)}</span>
-            <button type="button" disabled={(page + 1) * pageSize >= total} onClick={() => setPage(page + 1)} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">Next</button>
-          </div>
+
+        <div aria-busy={loading}>
+          {cases.length > 0 ? (
+            <div className={styles.caseGrid}>
+              {cases.map(item => (
+                <CaseCard key={item.id} item={item} onOpen={setModal}
+                  onNotesSaved={handleNotesSaved} onStatusChange={handleStatusChange}
+                  onDeleteRequest={trigger => {
+                    setDeleteError('');
+                    setModal({ kind: 'delete', item, trigger });
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.empty} role="status">
+              {loading ? 'Loading cases…' : hasFilters ? 'No cases match your search and filters.' : error ? (
+                <button type="button" onClick={() => fetchData(true)} className="workspace-control workspace-secondary">Retry</button>
+              ) : (
+                <>
+                  <p className="font-semibold">No cases yet</p>
+                  <p className="mt-1 text-sm text-[var(--workspace-muted)]">Select New case to add your first case.</p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {pageCount > 1 && (
+          <nav aria-label="Case pages" className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <button type="button" disabled={loading || page === 0} onClick={() => changePage(page - 1)}
+              className="workspace-control workspace-secondary"><ChevronLeft size={16} aria-hidden={true} /> Previous</button>
+            <span role="status" className="text-sm tabular-nums text-[var(--workspace-muted)]">Page {page + 1} of {pageCount}</span>
+            <button type="button" disabled={loading || page + 1 >= pageCount} onClick={() => changePage(page + 1)}
+              className="workspace-control workspace-secondary">Next <ChevronRight size={16} aria-hidden={true} /></button>
+          </nav>
         )}
       </section>
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-labelledby="new-case-heading" className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-xl sm:p-6">
-            <h3 id="new-case-heading" className="mb-4 text-xl font-semibold">Create new case</h3>
-            {createError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{createError}</p>}
-            <form onSubmit={handleCreateCase}>
-              <div className="mb-4">
-                <label htmlFor="new-case-title" className="block text-sm font-medium mb-1">Case title</label>
-                <input
-                  id="new-case-title"
-                  name="case_title"
-                  autoFocus
-                  type="text"
-                  maxLength={255}
-                  className="min-h-11 w-full px-3 py-2 text-base border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter case title"
-                  disabled={creating}
-                  required
-                />
-              </div>
-              <div className="mb-4 grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm font-medium">Case number <span className="font-normal text-slate-500">(optional)</span>
-                  <input name="case_number" maxLength={100} disabled={creating} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base" />
-                </label>
-                <label className="block text-sm font-medium">Court <span className="font-normal text-slate-500">(optional)</span>
-                  <input name="court_name" maxLength={150} disabled={creating} className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base" />
-                </label>
-              </div>
-              <div className="mb-5">
-                <label htmlFor="new-case-hearing" className="mb-1 block text-sm font-medium">Next hearing date <span className="font-normal text-slate-500">(optional)</span></label>
-                <input
-                  id="new-case-hearing"
-                  name="next_hearing_date"
-                  type="date"
-                  disabled={creating}
-                  className="min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-                />
-              </div>
-              <label className="mb-5 block text-sm font-medium">Case notes <span className="font-normal text-slate-500">(optional)</span>
-                <textarea name="description" rows={3} maxLength={10000} disabled={creating} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base" />
-              </label>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  disabled={creating}
-                  className="min-h-11 px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="min-h-11 rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-                >
-                  {creating ? 'Creating…' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {modal?.kind === 'create' && <CreateCaseDialog trigger={modal.trigger} onDismiss={closeDialog} onCreated={handleCreated} />}
+      {modal?.kind === 'edit' && (
+        <CaseEditor caseItem={modal.item} trigger={modal.trigger} onClose={closeDialog} onSaved={updated => {
+          adjustStats(modal.item, updated);
+          setCases(current => current.map(item => item.id === updated.id ? updated : item));
+          closeDialog();
+          fetchData(true);
+        }} />
       )}
-      {editingCase && (
-        <CaseEditor
-          caseItem={editingCase}
-          onClose={() => setEditingCase(null)}
-          onSaved={updated => {
-            adjustStats(editingCase, updated);
-            setCases(current => current.map(item => item.id === updated.id ? updated : item));
-            setEditingCase(null);
-            fetchData(true);
-          }}
-        />
+      {modal?.kind === 'delete' && (
+        <ConfirmationDialog title="Delete case?" confirmLabel={deleting ? 'Deleting…' : 'Delete case'}
+          onConfirm={() => handleDeleteCase(modal.item)} onDismiss={closeDialog} destructive busy={deleting}
+          error={deleteError} returnFocus={modal.trigger} fallbackFocusId="cases-heading">
+          <p><strong className="text-[var(--workspace-navy)]">{modal.item.case_title}</strong> will be permanently deleted, including its notes and hearing history.</p>
+        </ConfirmationDialog>
+      )}
+      {modal?.kind === 'calendar' && calendarDate && (
+        <ConfirmationDialog title="Add hearing to calendar?" confirmLabel="Add to calendar"
+          onDismiss={closeDialog} returnFocus={modal.trigger}
+          onConfirm={() => {
+            downloadFile(
+              hearingCalendar({ ...modal.item, next_hearing_date: calendarDate }),
+              `lawpro-hearing-${modal.item.id}-${calendarDate}.ics`,
+              'text/calendar;charset=utf-8',
+            );
+            closeDialog();
+          }}>
+          <p><strong className="text-[var(--workspace-navy)]">{modal.item.case_title}</strong></p>
+          <p><time dateTime={calendarDate}>{formatHearingDate(calendarDate)}</time> · All day</p>
+          <p>Download the event file to open or import in your calendar app.</p>
+        </ConfirmationDialog>
       )}
     </div>
   );
 }
 
-function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
-  const colors = {
-    blue: 'bg-blue-100 text-blue-800',
-    yellow: 'bg-yellow-100 text-yellow-800',
-    green: 'bg-green-100 text-green-800',
-    purple: 'bg-purple-100 text-purple-800',
-  };
-
-  return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm sm:p-4">
-      <span aria-hidden="true" className={`mb-2 block h-1.5 w-5 rounded-full sm:mb-3 sm:h-2 sm:w-6 ${colors[color as keyof typeof colors]}`} />
-      <p className="text-xs font-medium text-slate-600 sm:text-sm">{title}</p>
-      <p className="mt-1 text-[clamp(1.25rem,4vw,1.875rem)] font-semibold tabular-nums tracking-tight">{value}</p>
-    </div>
-  );
+function StatusOptions() {
+  return statuses.map(({ value, label }) => <option key={value} value={value}>{label}</option>);
 }
 
-function CaseCard({ case: caseItem, onEdit, onNotesSaved, onUpdate, onDelete }: {
-  case: Case;
-  onEdit: () => void;
+function CaseCard({ item, onOpen, onNotesSaved, onStatusChange, onDeleteRequest }: {
+  item: Case;
+  onOpen: (dialog: CaseDialog) => void;
   onNotesSaved: (id: number, description: Case['description']) => void;
-  onUpdate: (id: number, status: 'pending' | 'ongoing' | 'completed' | 'dismissed') => void;
-  onDelete: (id: number) => void;
+  onStatusChange: (item: Case, status: CaseStatus) => Promise<void>;
+  onDeleteRequest: (trigger: HTMLButtonElement) => void;
 }) {
-  const statusColors = {
-    pending: 'bg-amber-50 text-amber-900 ring-amber-200',
-    ongoing: 'bg-blue-50 text-blue-900 ring-blue-200',
-    completed: 'bg-emerald-50 text-emerald-900 ring-emerald-200',
-    dismissed: 'bg-slate-100 text-slate-700 ring-slate-200',
-  };
-  const hearingDate = caseItem.next_hearing_date;
-  const calendarDialog = useRef<HTMLDialogElement>(null);
-  const formattedHearingDate = hearingDate && new Date(hearingDate).toLocaleDateString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
-  });
-  const actionClass = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2';
+  const [changingStatus, setChangingStatus] = useState(false);
+  const hearing = item.next_hearing_date;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-      <h3 className="wrap-anywhere text-base leading-snug font-semibold text-slate-900">{caseItem.case_title}</h3>
-      <div className="mt-1 space-y-0.5 wrap-anywhere text-sm text-slate-600">
-        {caseItem.case_number && <p>Case no. {caseItem.case_number}</p>}
-        {caseItem.court_name && <p>{caseItem.court_name}</p>}
-        {hearingDate && (
-          <p className="flex items-center gap-1.5 font-medium text-slate-700">
-            <Calendar size={14} aria-hidden={true} className="shrink-0" />
-            Next hearing: {formattedHearingDate}
-          </p>
-        )}
-      </div>
-      <CaseNotes caseItem={caseItem} onSaved={onNotesSaved} />
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-slate-100 pt-2">
-        <div className="relative inline-flex items-center">
-          <select
-            aria-label={`Status for ${caseItem.case_title}`}
-            value={caseItem.status}
-            onChange={e => onUpdate(caseItem.id, e.target.value as Case['status'])}
-            className={`min-h-11 appearance-none rounded-lg py-2 pl-3 pr-8 text-base font-medium ring-1 ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-sm ${statusColors[caseItem.status]}`}
-          >
-            <option value="pending">Pending</option>
-            <option value="ongoing">Ongoing</option>
-            <option value="completed">Completed</option>
-            <option value="dismissed">Dismissed</option>
-          </select>
-          <ChevronDown size={14} aria-hidden={true} className="pointer-events-none absolute right-2.5 text-slate-600" />
+    <article className={styles.card}>
+      <h3>{item.case_title}</h3>
+      {(item.court_name || item.case_number) && (
+        <div className={styles.meta}>
+          {item.court_name && <span>{item.court_name}</span>}
+          {item.case_number && <span className={styles.caseNumber}>Case no. {item.case_number}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <button type="button" onClick={onEdit} aria-label="Edit case" className={actionClass}>
-            <Edit size={16} aria-hidden={true} />
-            Edit
-          </button>
-          {hearingDate && (
-            <button
-              type="button"
-              onClick={() => calendarDialog.current?.showModal()}
-              aria-label="Add to calendar"
-              className={actionClass}
-            >
-              <Calendar size={16} aria-hidden={true} />
-              Calendar
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onDelete(caseItem.id)}
-            aria-label="Delete case"
-            title="Delete case"
-            className={`${actionClass} min-w-11 justify-center hover:text-red-700`}
-          >
-            <Trash2 size={16} aria-hidden={true} />
-          </button>
-        </div>
-      </div>
-      {hearingDate && (
-        <dialog
-          ref={calendarDialog}
-          aria-labelledby={`calendar-title-${caseItem.id}`}
-          aria-describedby={`calendar-details-${caseItem.id}`}
-          className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-2xl bg-white p-5 text-slate-900 shadow-xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm"
-        >
-          <div className="mb-3 inline-flex rounded-xl bg-violet-50 p-2.5 text-violet-800">
-            <Calendar size={20} aria-hidden={true} />
-          </div>
-          <h4 id={`calendar-title-${caseItem.id}`} className="text-lg font-semibold">Add hearing to calendar?</h4>
-          <p id={`calendar-details-${caseItem.id}`} className="mt-2 text-sm leading-relaxed text-slate-600">
-            <strong className="wrap-anywhere text-slate-900">{caseItem.case_title}</strong>
-            <br />
-            {formattedHearingDate} · All day
-          </p>
-          <p className="mt-3 text-sm text-slate-600">Download the event file to open or import in your calendar app.</p>
-          <form method="dialog" className="mt-5 grid grid-cols-2 gap-2">
-            <button autoFocus className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-medium hover:bg-slate-50">Cancel</button>
-            <button
-              type="button"
-              onClick={() => {
-                downloadFile(
-                  hearingCalendar({ ...caseItem, next_hearing_date: hearingDate }),
-                  `lawpro-hearing-${caseItem.id}-${hearingDate}.ics`,
-                  'text/calendar;charset=utf-8',
-                );
-                calendarDialog.current?.close();
-              }}
-              className="min-h-11 rounded-xl bg-violet-700 px-3 text-sm font-semibold text-white hover:bg-violet-800"
-            >
-              Add to calendar
-            </button>
-          </form>
-        </dialog>
       )}
-    </div>
+      <p className={styles.hearing}>
+        <Calendar size={16} aria-hidden={true} className="shrink-0" />
+        {hearing ? <>Next hearing <time dateTime={hearing}>{formatHearingDate(hearing)}</time></> : 'No hearing scheduled'}
+      </p>
+      <CaseNotes caseItem={item} onSaved={onNotesSaved} />
+      <div className={styles.actions}>
+        <span className={styles.status} data-status={item.status}>
+          <select aria-label={`Status for ${item.case_title}`} value={item.status} disabled={changingStatus}
+            onChange={async event => {
+              const status = event.target.value as CaseStatus;
+              setChangingStatus(true);
+              try {
+                await onStatusChange(item, status);
+              } finally {
+                setChangingStatus(false);
+              }
+            }}>
+            <StatusOptions />
+          </select>
+          <ChevronDown size={14} aria-hidden={true} />
+        </span>
+        <button type="button" className={`workspace-icon-button ${styles.cardAction}`}
+          aria-haspopup="dialog" aria-label="Edit case" title="Edit case"
+          onClick={event => onOpen({ kind: 'edit', item, trigger: event.currentTarget })}>
+          <Edit size={16} aria-hidden={true} /> <span className="hidden min-[375px]:inline">Edit</span>
+        </button>
+        {hearing && (
+          <button type="button" className={`workspace-icon-button ${styles.cardAction}`}
+            aria-haspopup="dialog" aria-label="Add to calendar" title="Add to calendar"
+            onClick={event => onOpen({ kind: 'calendar', item, trigger: event.currentTarget })}>
+            <Calendar size={16} aria-hidden={true} /> <span className="hidden min-[390px]:inline">Calendar</span>
+          </button>
+        )}
+        <button type="button" className={`workspace-icon-button ${styles.delete}`} aria-haspopup="dialog"
+          aria-label="Delete case" title="Delete case" onClick={event => onDeleteRequest(event.currentTarget)}>
+          <Trash2 size={16} aria-hidden={true} />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function CreateCaseDialog({ trigger, onDismiss, onCreated }: {
+  trigger: HTMLButtonElement;
+  onDismiss: () => void;
+  onCreated: (item: Case) => void;
+}) {
+  const formId = useId();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const form = new FormData(event.currentTarget);
+    const value = (name: string) => String(form.get(name) ?? '').trim();
+    const title = value('case_title');
+    if (!title) {
+      setError('Enter a case title.');
+      return;
+    }
+    const hearingDate = value('next_hearing_date');
+    setSaving(true);
+    setError('');
+    try {
+      onCreated(await createCase({
+        case_title: title,
+        case_number: value('case_number') || null,
+        court_name: value('court_name') || null,
+        description: value('description') || null,
+        ...(hearingDate && { next_hearing_date: hearingDate }),
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create the case. Try again.');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <FloatingDialog title="Create new case" returnFocus={trigger} busy={saving} onDismiss={onDismiss} error={error}
+      footer={
+        <>
+          <button type="button" className="workspace-control workspace-secondary" disabled={saving} onClick={onDismiss}>Cancel</button>
+          <button type="submit" form={formId} className="workspace-control workspace-primary" disabled={saving}>
+            {saving ? 'Creating…' : 'Create case'}
+          </button>
+        </>
+      }>
+      <form id={formId} onSubmit={save}>
+        <fieldset disabled={saving} className={styles.formGrid}>
+          <label className={`workspace-label ${styles.full}`}>Case title
+            <input name="case_title" maxLength={255} className="workspace-field" required />
+          </label>
+          <label className="workspace-label"><span>Case number <span className="font-normal text-slate-600">(optional)</span></span>
+            <input name="case_number" maxLength={100} className="workspace-field" />
+          </label>
+          <label className="workspace-label"><span>Court <span className="font-normal text-slate-600">(optional)</span></span>
+            <input name="court_name" maxLength={150} className="workspace-field" />
+          </label>
+          <label className={`workspace-label ${styles.full}`}><span>Next hearing date <span className="font-normal text-slate-600">(optional)</span></span>
+            <input type="date" name="next_hearing_date" className="workspace-field" />
+          </label>
+          <label className={`workspace-label ${styles.full}`}><span>Case notes <span className="font-normal text-slate-600">(optional)</span></span>
+            <textarea name="description" rows={3} maxLength={10000} className="workspace-field" />
+          </label>
+        </fieldset>
+      </form>
+    </FloatingDialog>
   );
 }

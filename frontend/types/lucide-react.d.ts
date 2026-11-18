@@ -22,6 +22,7 @@ declare module 'lucide-react' {
   export const Plus: React.FC<IconProps>;
   export const Edit: React.FC<IconProps>;
   export const Trash2: React.FC<IconProps>;
+  export const Download: React.FC<IconProps>;
   export const Search: React.FC<IconProps>;
   export const Settings: React.FC<IconProps>;
   export const Bell: React.FC<IconProps>;

@@ -86,38 +86,7 @@ async function main() {
   const router = { replace: pathname => { redirect = pathname; } };
   const auth = { useAuth: () => ({ isAuthenticated: authenticated, loading: false }) };
   const hooks = hooksForTest();
-  const scrollRestores = [];
-  const document = { documentElement: { clientWidth: 375 }, body: { style: { position: '' } } };
-  const window = {
-    innerWidth: 390, scrollX: 0, scrollY: 450,
-    getComputedStyle: () => ({ paddingInlineEnd: '0px' }),
-    scrollTo: options => scrollRestores.push(options),
-  };
-  function focusable() {
-    return {
-      hasAutofocus: false,
-      setAttribute(name) { assert.equal(name, 'autofocus'); this.hasAutofocus = true; },
-      removeAttribute() { this.hasAutofocus = false; },
-      focus(options) { document.activeElement = this; this.focusOptions = options; },
-    };
-  }
-  const title = focusable();
-  const back = focusable();
-  const trigger = focusable();
-  const dialog = {
-    open: false,
-    showModal() {
-      this.open = true;
-      const target = [title, back].find(node => node.hasAutofocus);
-      assert.ok(target);
-      target.focus();
-    },
-  };
-  function attachReaderRef(node) {
-    const element = node.type === 'dialog' ? dialog : node.props.id === 'reader-title' ? title
-      : node.props.className === 'back' ? back : null;
-    if (element) node.ref.current = element;
-  }
+  const trigger = {};
   const legal = load('lib/legalIntelligence.ts', {
     '@/lib/api': {
       apiRequest: async (endpoint, options) => {
@@ -153,14 +122,18 @@ async function main() {
     'next/navigation': { useRouter: () => router },
     '@/context/AuthContext': auth,
     '@/lib/legalIntelligence': legal,
+    '../FloatingDialog': { FloatingDialog: props => ({
+      type: 'dialog',
+      props: { ...props, children: [props.header, props.children] },
+    }) },
     './legal-intelligence.module.css': { default: new Proxy({}, { get: (_target, key) => key }) },
-  }, { window, document });
+  });
   const { default: Navigation } = load('app/AccountNavigation.tsx', {
     'next/link': { default: 'a' },
     'next/navigation': { usePathname: () => '/legal-intelligence' },
     '@/context/AuthContext': auth,
   });
-  const render = () => view(Page, hooks, attachReaderRef);
+  const render = () => view(Page, hooks);
   const textOf = node => node?.props.children;
   const form = nodes => nodes.find(node => node.type === 'form');
   const button = (nodes, label) => nodes.find(node => node.type === 'button' && textOf(node) === label);
@@ -170,12 +143,9 @@ async function main() {
   const toggleFilters = nodes => nodes.find(node => node.props['aria-controls'] === 'legal-filter-panel');
   const dateInputs = nodes => nodes.filter(node => node.type === 'input' && node.props.type === 'date');
   const closeReader = nodes => {
-    dialog.open = false;
-    nodes.find(node => node.type === 'dialog').props.onClose();
-    assert.equal(document.activeElement, trigger);
-    assert.equal(trigger.focusOptions.preventScroll, true);
-    assert.equal(window.scrollY, scrollRestores.at(-1).top);
-    assert.equal(document.body.style.position, '');
+    const dialog = nodes.find(node => node.type === 'dialog');
+    assert.equal(dialog.props.returnFocus, trigger);
+    dialog.props.onDismiss();
   };
   const editQuery = (nodes, value) =>
     nodes.find(node => node.type === 'input' && node.props.type === 'search').props.onChange({ target: { value } });
@@ -230,8 +200,6 @@ async function main() {
   assert.match(css, /\.selectChip select\s*\{[^}]*appearance: none;[^}]*opacity: 0;/);
   assert.match(css, /\.cardAction::after\s*\{[^}]*inset: 0;/);
   assert.match(css, /\.cardSource\s*\{[^}]*z-index: 1;/);
-  assert.match(css, /\.reader\s*\{[^}]*100dvh[^}]*safe-area-inset-top/);
-  assert.match(css, /\.readerScroll\s*\{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;/);
   assert.match(css, /\.hub :where\([^)]+\):focus-visible\s*\{[^}]*outline: 2px solid/);
   chip(nodes, 'Court').props.onChange({ target: { value: 'sc' } });
   chip(render(), 'Category').props.onChange({ target: { value: 'Criminal' } });
@@ -266,8 +234,7 @@ async function main() {
   nodes = render();
   assert.equal(nodes.find(node => node.props.className === 'back').props.children.at(-1).trim(), 'Back to Results');
   await tick();
-  assert.equal(document.activeElement, title);
-  assert.equal(document.body.style.position, 'fixed');
+  assert.equal(nodes.find(node => node.props.id === 'reader-title').props['data-dialog-focus'], '');
   nodes = render();
   assert.ok(hasText(nodes, 'Details are unavailable.'));
   button(nodes, 'Retry').props.onClick();
@@ -296,7 +263,7 @@ async function main() {
   assert.ok(hasText(render(), 'Loading details'));
   await tick();
   nodes = render();
-  assert.equal(document.activeElement, back);
+  assert.equal(nodes.find(node => node.props.className === 'back').props['data-dialog-focus'], '');
   assert.ok(hasText(nodes, 'Fixture reader text'));
   closeReader(nodes);
 

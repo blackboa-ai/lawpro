@@ -105,9 +105,11 @@ async function measureReader(page, width, height, touch, article = card(page)) {
       && !['transparent', 'rgba(0, 0, 0, 0)'].includes(outlineColor);
   }), false, 'pointer entry leaves the programmatically focused heading without a visible ring');
   const rect = await dialog(page).boundingBox();
-  assert.ok(rect.x >= 0 && rect.x + rect.width <= width && rect.y >= 0 && rect.y + rect.height <= height + 1);
-  if (touch) assert.ok(Math.abs(rect.y + rect.height - height) <= 1, 'mobile reader docks to the viewport');
-  assert.equal(await page.evaluate(() => document.body.style.position), 'fixed');
+  assert.ok(rect.x >= 0 && rect.x + rect.width <= width && rect.y >= 0 && rect.y + rect.height <= height + 1,
+    `the reader fits ${width}×${height}: ${JSON.stringify(rect)}`);
+  assert.ok(Math.abs(rect.y + rect.height / 2 - height / 2) <= 1,
+    `the reader is centered vertically at ${width}×${height}: ${JSON.stringify(rect)}`);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).position), 'fixed');
   assert.equal(await readerBody(page).locator('section p').first().textContent(), firstLine);
   assert.equal(await readerBody(page).locator('section p').last().textContent(), lastLine);
   assert.ok(await readerBody(page).evaluate(node => {
@@ -175,8 +177,12 @@ async function checkWidth(browser, storageState, width, height, engine) {
     if (process.env.LAWPRO_QA_ARTIFACTS) await page.screenshot({ path: join(process.env.LAWPRO_QA_ARTIFACTS, `${engine}-reader-${width}.png`) });
     for (const shorter of [520, height]) {
       await page.setViewportSize({ width, height: shorter });
+      await page.waitForFunction(visibleHeight => {
+        const dialog = document.querySelector('dialog[open]');
+        return Math.abs(parseFloat(dialog?.style.getPropertyValue('--dialog-viewport-height')) - visibleHeight) < 1;
+      }, shorter);
       const resized = await dialog(page).boundingBox();
-      assert.ok(resized.y >= 0 && Math.abs(resized.y + resized.height - shorter) <= 1);
+      assert.ok(resized.y > 0 && Math.abs(resized.y + resized.height / 2 - shorter / 2) <= 1);
     }
   }
   console.log(`${engine} ${width}×${height} passed (first card at ${firstCardTop}px)`);

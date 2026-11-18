@@ -1,0 +1,363 @@
+/* Shared workspace styling from Legal Intelligence. */
+:root {
+  --workspace-navy: #142743;
+  --workspace-navy-hover: #213c60;
+  --workspace-muted: #425571;
+  --workspace-line: #dce4ee;
+  --workspace-focus: #634916;
+  --workspace-wash: #edf3fa;
+  --workspace-hero: linear-gradient(115deg, #eaf1fb, #f1f5fb 65%, #f6f8fb);
+  --workspace-shadow: 0 2px 5px #14274309;
+}
+
+.workspace-nav {
+  background: #0f1e34;
+  color: white;
+}
+
+.workspace-nav-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: clamp(0.75rem, 3vw, 2.25rem);
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: max(0.375rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.375rem max(1rem, env(safe-area-inset-left));
+}
+
+@media (max-width: 39.999rem) {
+  .workspace-nav-links {
+    flex-basis: 100%;
+  }
+}
+
+.workspace-brand,
+.workspace-nav-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-radius: 0.625rem;
+}
+
+.workspace-brand {
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.workspace-brand svg {
+  color: #f5d997;
+}
+
+.workspace-nav-link {
+  padding-inline: clamp(0.5rem, 2vw, 0.875rem);
+  color: #d8e3f1;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.workspace-nav-link:hover,
+.workspace-nav-link[aria-current="page"] {
+  background: #243752;
+  color: #ffe5ad;
+}
+
+.workspace-nav :focus-visible {
+  outline: 2px solid #ffe5ad;
+  outline-offset: 2px;
+}
+
+.workspace-main {
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+}
+
+@media (min-width: 40rem) {
+  .workspace-nav-inner,
+  .workspace-main {
+    padding-inline: max(2rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-right));
+  }
+}
+
+.workspace-control,
+.workspace-icon-button,
+.workspace-field {
+  border-radius: 0.6875rem;
+}
+
+.workspace-control,
+.workspace-icon-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+}
+
+.workspace-control {
+  padding: 0.5rem 0.875rem;
+}
+
+.workspace-control svg,
+.workspace-icon-button svg {
+  flex: none;
+}
+
+.workspace-control:disabled,
+.workspace-icon-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.workspace-primary {
+  background: var(--workspace-navy);
+  color: white;
+}
+
+.workspace-primary:hover:enabled {
+  background: var(--workspace-navy-hover);
+}
+
+.workspace-secondary {
+  border: 1px solid #cbd9e8;
+  background: white;
+  color: var(--workspace-navy);
+}
+
+.workspace-secondary:hover:enabled,
+.workspace-icon-button:hover:enabled {
+  background: var(--workspace-wash);
+}
+
+.workspace-icon-button {
+  width: 2.75rem;
+  flex: none;
+  color: var(--workspace-muted);
+}
+
+.workspace-danger {
+  background: #a1212b;
+  color: white;
+}
+
+.workspace-danger:hover:enabled {
+  background: #821923;
+}
+
+.workspace-field {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid #bfcddd;
+  background: white;
+  padding: 0.5rem 0.6875rem;
+  color: var(--workspace-navy);
+  font-size: 1rem;
+  font-weight: 400;
+  text-align: start;
+}
+
+.workspace-field[type="date"] {
+  appearance: none;
+}
+
+.workspace-field::placeholder {
+  color: #536479;
+}
+
+textarea.workspace-field {
+  resize: vertical;
+}
+
+.workspace-label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 0.3125rem;
+  align-content: start;
+  color: var(--workspace-navy);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.workspace-error {
+  border-radius: 0.625rem;
+  background: #fff1f2;
+  padding: 0.625rem 0.75rem;
+  color: #9f1239;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.workspace-focus :where(a, button, input, select, textarea, [tabindex]):focus-visible,
+.floating-dialog :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--workspace-focus);
+  outline-offset: 2px;
+}
+
+.dialog-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.dialog-open body {
+  position: fixed;
+  inset: var(--dialog-scroll-top) 0 auto;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.floating-dialog {
+  --safe-top: max(0.625rem, env(safe-area-inset-top));
+  --safe-right: max(0.625rem, env(safe-area-inset-right));
+  --safe-bottom: max(0.625rem, env(safe-area-inset-bottom));
+  --safe-left: max(0.625rem, env(safe-area-inset-left));
+  --dialog-spacing: clamp(0.875rem, 3vw, 1.5rem);
+  --dialog-width: 35rem;
+  position: fixed;
+  inset: auto;
+  top: calc(var(--dialog-viewport-top, 0px) + (var(--dialog-viewport-height, 100dvh) + var(--safe-top) - var(--safe-bottom)) / 2);
+  left: calc(var(--dialog-viewport-left, 0px) + (var(--dialog-viewport-width, 100vw) + var(--safe-left) - var(--safe-right)) / 2);
+  width: min(var(--dialog-width), calc(var(--dialog-viewport-width, 100vw) - var(--safe-left) - var(--safe-right)));
+  max-width: none;
+  height: fit-content;
+  max-height: calc(var(--dialog-viewport-height, 100dvh) - var(--safe-top) - var(--safe-bottom));
+  margin: 0;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  border-radius: 1.125rem;
+  background: white;
+  color: var(--workspace-navy);
+  box-shadow: 0 18px 56px #101d3945;
+}
+
+.floating-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.floating-dialog[data-size="compact"] {
+  --dialog-width: 27rem;
+}
+
+.floating-dialog[data-size="wide"] {
+  --dialog-width: 46rem;
+}
+
+.floating-dialog::backdrop {
+  background: #101e35a1;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  touch-action: none;
+}
+
+.floating-header {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem max(0.5rem, calc(var(--dialog-spacing) - 0.375rem)) 0.5rem var(--dialog-spacing);
+  background: #f4f7fb;
+}
+
+.floating-header h2 {
+  margin-top: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.floating-header h2:focus {
+  outline: none;
+}
+
+.floating-header p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: var(--workspace-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.floating-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding: 0.65rem;
+  padding: var(--dialog-spacing);
+}
+
+.floating-body:focus-visible {
+  outline-offset: -3px;
+}
+
+.floating-footer {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid var(--workspace-line);
+  padding: 0.625rem var(--dialog-spacing);
+  background: white;
+}
+
+@media (min-width: 40rem) {
+  .floating-dialog {
+    --safe-top: max(1.25rem, env(safe-area-inset-top));
+    --safe-right: max(1.25rem, env(safe-area-inset-right));
+    --safe-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    --safe-left: max(1.25rem, env(safe-area-inset-left));
+    border-radius: 1.25rem;
+  }
+
+  .floating-footer {
+    padding-block: 0.75rem;
+  }
+}
+
+.floating-dialog[data-short] {
+  --safe-top: max(0.25rem, env(safe-area-inset-top));
+  --safe-bottom: max(0.25rem, env(safe-area-inset-bottom));
+}
+
+.floating-dialog[data-short] .floating-header {
+  align-items: center;
+  padding-block: 0.125rem;
+}
+
+.floating-dialog[data-short] .floating-header h2 {
+  margin-top: 0;
+  font-size: 1.0625rem;
+}
+
+.floating-dialog[data-short] .floating-header p {
+  margin-top: 0.125rem;
+  line-height: 1.15;
+  -webkit-line-clamp: 1;
+}
+
+.floating-dialog[data-short] .floating-body,
+.floating-dialog[data-short] .floating-footer {
+  padding-block: 0.25rem;
+}
+
+.floating-dialog[data-short] .floating-footer [role="alert"] {
+  max-height: 2.5rem;
+  overflow: auto;
+  padding-block: 0.25rem;
+}
