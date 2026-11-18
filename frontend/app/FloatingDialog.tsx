@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 let scrollLocks = 0;
@@ -62,8 +62,10 @@ type FloatingDialogProps = {
   bodyClassName?: string;
   returnFocus?: HTMLElement | null;
   fallbackFocusId?: string;
-  onDismiss: () => void;
+  onDismiss: (keyboard: boolean) => void;
   busy?: boolean;
+  borderless?: boolean;
+  initialKeyboardFocus?: boolean;
   size?: 'compact' | 'standard' | 'wide';
 } & (
   | { title: string; subtitle?: string; header?: never; labelledBy?: never; preferInitialControl?: boolean }
@@ -72,8 +74,10 @@ type FloatingDialogProps = {
 
 export function FloatingDialog({
   title, subtitle, header, labelledBy, children, footer, error, bodyLabel, focusBody, bodyClassName = '',
-  returnFocus, fallbackFocusId, onDismiss, busy = false, size = 'standard', preferInitialControl,
+  returnFocus, fallbackFocusId, onDismiss, busy = false, borderless = false, initialKeyboardFocus = false,
+  size = 'standard', preferInitialControl,
 }: FloatingDialogProps) {
+  const [keyboardFocus, setKeyboardFocus] = useState(initialKeyboardFocus);
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const subtitleId = useId();
@@ -132,12 +136,18 @@ export function FloatingDialog({
       ref={dialog}
       className="floating-dialog"
       data-size={size}
+      data-borderless={borderless ? '' : undefined}
+      data-keyboard-focus={borderless && keyboardFocus ? '' : undefined}
       aria-labelledby={labelledBy ?? titleId}
       aria-describedby={subtitle ? subtitleId : undefined}
+      onPointerDownCapture={borderless ? () => setKeyboardFocus(false) : undefined}
+      onKeyDownCapture={borderless ? event => {
+        if (event.key === 'Tab') setKeyboardFocus(true);
+      } : undefined}
       onKeyDown={keepTabInside}
       onCancel={event => {
         event.preventDefault();
-        if (!busy) onDismiss();
+        if (!busy) onDismiss(true);
       }}
     >
       {header ?? (
@@ -152,7 +162,7 @@ export function FloatingDialog({
             type="button"
             aria-label="Close"
             disabled={busy}
-            onClick={onDismiss}
+            onClick={event => onDismiss(event.detail === 0)}
             className="workspace-icon-button"
           >
             <X size={20} aria-hidden={true} />
