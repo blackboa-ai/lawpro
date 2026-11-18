@@ -9,6 +9,7 @@ import {
   getLegalDetail, getLegalFilters, getLegalUpdates, originalSourceUrl,
 } from '@/lib/legalIntelligence';
 import type { LegalItem } from '@/lib/legalIntelligence';
+import { FloatingDialog } from '../FloatingDialog';
 import styles from './legal-intelligence.module.css';
 
 const sourceNames: Record<string, string> = {
@@ -122,27 +123,6 @@ function RequestError({ message, retry }: { message: string; retry: () => void }
   );
 }
 
-function lockPageScroll() {
-  const { scrollX, scrollY } = window;
-  const body = document.body.style;
-  const scrollbar = window.innerWidth - document.documentElement.clientWidth;
-  const padding = window.getComputedStyle(document.body).paddingInlineEnd;
-  const styles = {
-    position: 'fixed',
-    top: `${-scrollY}px`,
-    insetInlineStart: '0',
-    insetInlineEnd: '0',
-    paddingInlineEnd: `calc(${padding} + ${scrollbar}px)`,
-  };
-  const properties = Object.keys(styles) as (keyof typeof styles)[];
-  const previous = properties.map(property => body[property]);
-  Object.assign(body, styles);
-  return () => {
-    properties.forEach((property, index) => { body[property] = previous[index]; });
-    window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
-  };
-}
-
 function SourceText({ title, text }: { title: string; text: string }) {
   const paragraphs = text.replace(/\r\n?/g, '\n').split(/\n(?:[^\S\n]*\n)+/);
   return (
@@ -157,52 +137,23 @@ function SourceText({ title, text }: { title: string; text: string }) {
 
 function ResultReader({ entry, onClose }: { entry: ReaderEntry; onClose: () => void }) {
   const { item, trigger, keyboard } = entry;
-  const dialog = useRef<HTMLDialogElement>(null);
-  const back = useRef<HTMLButtonElement>(null);
-  const title = useRef<HTMLHeadingElement>(null);
-  const unlockScroll = useRef<(() => void) | null>(null);
   const { state, retry } = useResearchRequest(item.id, getLegalDetail);
-  useEffect(() => {
-    const element = dialog.current;
-    const initialFocus = keyboard ? back.current : title.current;
-    if (!element || !initialFocus) return;
-
-    unlockScroll.current = lockPageScroll();
-    if (!element.open) {
-      // Give the native dialog an explicit target before it runs its focusing steps.
-      initialFocus.setAttribute('autofocus', '');
-      element.showModal();
-      initialFocus.removeAttribute('autofocus');
-    }
-    if (document.activeElement !== initialFocus) initialFocus.focus({ preventScroll: true });
-
-    return releaseScroll;
-  }, [keyboard]);
-
-  function releaseScroll() {
-    unlockScroll.current?.();
-    unlockScroll.current = null;
-  }
-
-  function closeReader() {
-    releaseScroll();
-    trigger.focus({ preventScroll: true });
-    onClose();
-  }
-
   const detail = state.status === 'ready' ? state.data : item;
   const fullText = state.status === 'ready' ? state.data.full_text : null;
 
   return (
-    <dialog ref={dialog} onClose={closeReader} aria-labelledby="reader-title" className={styles.reader}>
-      <div className={styles.readerToolbar}>
-        <button ref={back} type="button" onClick={() => dialog.current?.close()} className={styles.back}>
-          <ArrowLeft aria-hidden={true} size={17} /> Back to Results
-        </button>
-      </div>
-      <div className={styles.readerScroll} tabIndex={0} role="region" aria-label="Document content">
+    <FloatingDialog size="wide" labelledBy="reader-title" returnFocus={trigger}
+      onDismiss={onClose} bodyLabel="Document content" bodyClassName={styles.readerScroll}
+      header={
+        <div className={styles.readerToolbar}>
+          <button type="button" data-dialog-focus={keyboard ? '' : undefined} onClick={onClose} className={styles.back}>
+            <ArrowLeft aria-hidden={true} size={17} /> Back to Results
+          </button>
+        </div>
+      }>
         <div className={styles.readerContent}>
-          <h2 ref={title} id="reader-title" tabIndex={-1} data-pointer-focus={!keyboard} className={styles.readerTitle}>{detail.title}</h2>
+          <h2 id="reader-title" tabIndex={-1} data-dialog-focus={!keyboard ? '' : undefined}
+            data-pointer-focus={!keyboard} className={styles.readerTitle}>{detail.title}</h2>
           <ItemMetadata item={detail} />
           <SourceLink item={detail} />
           {state.status === 'loading' && <p role="status" className="text-sm text-slate-600">Loading details…</p>}
@@ -214,8 +165,7 @@ function ResultReader({ entry, onClose }: { entry: ReaderEntry; onClose: () => v
             <p className="text-sm text-slate-600">The source has no additional text for this update.</p>
           )}
         </div>
-      </div>
-    </dialog>
+    </FloatingDialog>
   );
 }
 

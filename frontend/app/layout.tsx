@@ -1,5 +1,6 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import './workspace.css'
+import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
 import { Scale } from 'lucide-react'
 import AccountNavigation from './AccountNavigation'
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
   description: 'Professional hearing date tracker for Indian lawyers',
 }
 
+export const viewport: Viewport = { viewportFit: 'cover' }
+
 export default function RootLayout({
   children,
 }: {
@@ -19,16 +22,16 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
         <AuthProvider>
-          <nav className="border-b border-slate-700 bg-slate-950 text-white">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-7 gap-y-2 px-4 py-3 sm:px-8">
-              <Link href="/" className="inline-flex items-center gap-3 text-xl font-semibold tracking-tight">
-                <Scale aria-hidden={true} size={22} className="text-amber-300" />
+          <nav aria-label="Main navigation" className="workspace-nav">
+            <div className="workspace-nav-inner">
+              <Link href="/" className="workspace-brand">
+                <Scale aria-hidden={true} size={21} />
                 LawPro
               </Link>
               <AccountNavigation />
             </div>
           </nav>
-          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-12">
+          <main className="workspace-main py-8 sm:py-12">
             {children}
           </main>
         </AuthProvider>

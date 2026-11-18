@@ -10,7 +10,7 @@ export default function AccountNavigation() {
   if (!isAuthenticated) return null;
 
   return (
-    <ul aria-label="Workspace" className="flex flex-wrap items-center gap-1 text-sm font-medium sm:gap-3">
+    <ul aria-label="Workspace" className="workspace-nav-links flex flex-wrap items-center gap-1">
       {[
         { href: '/dashboard', name: 'Dashboard' },
         { href: '/legal-intelligence', name: 'Legal Intelligence' },
@@ -19,7 +19,7 @@ export default function AccountNavigation() {
           <Link
             href={href}
             aria-current={pathname === href ? 'page' : undefined}
-            className="inline-flex min-h-11 items-center rounded-lg px-3 text-slate-200 hover:bg-slate-800 aria-[current=page]:bg-slate-800 aria-[current=page]:text-amber-200"
+            className="workspace-nav-link"
           >
             {name}
           </Link>
