@@ -108,7 +108,8 @@ export function CaseNotes({ caseItem, onSaved }: {
           )}>
           {isEditing ? (
             <form id={formId} onSubmit={save}>
-              <label className="workspace-label">Notes
+              <label className={`workspace-label ${notesStyles.label}`}>
+                <span className={notesStyles.labelText}>Notes</span>
                 <span className={notesStyles.draft} data-value={draft}>
                   <textarea
                     ref={textarea}
@@ -116,7 +117,6 @@ export function CaseNotes({ caseItem, onSaved }: {
                     onChange={event => setDraft(event.target.value)}
                     maxLength={10000}
                     readOnly={saving}
-                    className="workspace-field"
                   />
                 </span>
               </label>

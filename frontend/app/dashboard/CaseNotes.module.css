@@ -12,36 +12,37 @@
   overflow: hidden;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  border: 1px solid transparent;
 }
 
 .draft::after,
 .draft textarea {
   min-height: 6rem;
   max-height: clamp(6rem, calc(var(--dialog-viewport-height, 100dvh) - 13rem), 18rem);
-  padding: 0.625rem 0.6875rem;
   font-size: 1rem;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.625;
 }
 
 .draft textarea {
   position: absolute;
   inset: 0;
+  width: 100%;
   height: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--workspace-muted);
+  caret-color: var(--workspace-navy);
   resize: none;
   overscroll-behavior: contain;
 }
 
 .draft textarea:focus {
-  border-color: #526985;
-  box-shadow: inset 0 0 0 1px #526985;
   outline: none;
 }
 
-@media (forced-colors: active) {
-  .draft textarea:focus {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
-  }
+.label:focus-within .labelText {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
 }
