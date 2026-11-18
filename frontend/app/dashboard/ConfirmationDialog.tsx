@@ -4,6 +4,7 @@ import { FloatingDialog } from '../FloatingDialog';
 export function ConfirmationDialog({
   title, children, confirmLabel, onConfirm, onDismiss, cancelLabel = 'Cancel',
   destructive = false, busy = false, error, returnFocus, fallbackFocusId,
+  borderless, initialKeyboardFocus,
 }: {
   title: string;
   children: ReactNode;
@@ -12,6 +13,8 @@ export function ConfirmationDialog({
   onDismiss: () => void;
   cancelLabel?: string;
   destructive?: boolean;
+  borderless?: boolean;
+  initialKeyboardFocus?: boolean;
   busy?: boolean;
   error?: string;
   returnFocus?: HTMLElement | null;
@@ -22,6 +25,8 @@ export function ConfirmationDialog({
       title={title}
       size="compact"
       busy={busy}
+      borderless={borderless}
+      initialKeyboardFocus={initialKeyboardFocus}
       preferInitialControl
       onDismiss={onDismiss}
       returnFocus={returnFocus}

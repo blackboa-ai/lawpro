@@ -41,7 +41,7 @@
   outline: none;
 }
 
-.label:focus-within .labelText {
+:global([data-keyboard-focus]) .label:focus-within .labelText {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 0.18em;

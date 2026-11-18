@@ -66,6 +66,15 @@ async function seed(apiOrigin) {
   return { token, ownCase };
 }
 
+async function assertBorderless(locator) {
+  const { outlineStyle, borderTopWidth } = await locator.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { outlineStyle: style.outlineStyle, borderTopWidth: style.borderTopWidth };
+  });
+  assert.equal(outlineStyle, 'none');
+  assert.equal(borderTopWidth, '0px');
+}
+
 async function checkLayout(browser, frontend, token, width, height, mobile) {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: mobile, hasTouch: mobile });
   await page.addInitScript(value => localStorage.setItem('token', value), token);
@@ -112,6 +121,10 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
     await page.keyboard.press('Enter');
   }
   await modal.waitFor();
+  await assertBorderless(modal);
+  await assertBorderless(region);
+  await assertBorderless(edit);
+  if (mobile) assert.equal(await region.evaluate(element => getComputedStyle(element).backgroundColor), 'rgba(0, 0, 0, 0)');
   assert.equal(await region.locator('p').last().textContent(), notes);
   const content = await region.evaluate(element => ({
     whiteSpace: getComputedStyle(element.lastElementChild).whiteSpace,
@@ -153,13 +166,14 @@ async function checkLayout(browser, frontend, token, width, height, mobile) {
     await close.tap();
   } else {
     assert.equal(await region.evaluate(element => element === document.activeElement), true);
-    assert.equal(await region.evaluate(element => getComputedStyle(element).outlineStyle), 'solid');
+    assert.equal(await region.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(237, 243, 250)');
     await page.keyboard.press('Shift+Tab');
     assert.equal(await close.evaluate(element => element === document.activeElement), true);
     await page.keyboard.press('Tab');
     assert.equal(await region.evaluate(element => element === document.activeElement), true);
     await page.keyboard.press('Tab');
     assert.equal(await edit.evaluate(element => element === document.activeElement), true);
+    assert.equal(await edit.evaluate(element => getComputedStyle(element).textDecorationLine), 'underline');
     await page.keyboard.press('Tab');
     assert.equal(await close.evaluate(element => element === document.activeElement), true);
     await page.keyboard.press('Escape');
@@ -248,8 +262,15 @@ async function checkNotesEditing(page, token, ownCase) {
     visualViewport.dispatchEvent(new Event('resize'));
   });
   await cancel.tap();
-  await warning.getByRole('button', { name: 'Keep editing' }).tap();
+  const keepEditing = warning.getByRole('button', { name: 'Keep editing' });
+  await assertBorderless(warning);
+  await assertBorderless(keepEditing);
+  assert.equal(await keepEditing.evaluate(element => getComputedStyle(element).textDecorationLine), 'none');
+  await keepEditing.tap();
   assert.equal(await field.inputValue(), `${notes}\nUnsaved text`);
+  assert.equal(await field.evaluate(element => element === document.activeElement), true);
+  await assertBorderless(modal);
+  await assertBorderless(field);
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).position), 'fixed');
   await cancel.tap();
   await warning.getByRole('button', { name: 'Discard changes' }).tap();

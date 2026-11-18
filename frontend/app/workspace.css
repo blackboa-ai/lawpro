@@ -316,6 +316,45 @@ textarea.workspace-field {
   background: white;
 }
 
+.floating-dialog[data-borderless],
+.floating-dialog[data-borderless] :where(button, .floating-body):focus {
+  outline: none;
+}
+
+.floating-dialog[data-borderless] {
+  border: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.floating-dialog[data-borderless] .workspace-secondary {
+  border: 0;
+  background: var(--workspace-wash);
+}
+
+.floating-dialog[data-borderless] .workspace-secondary:active {
+  background: #dfe9f5;
+}
+
+.floating-dialog[data-borderless] .floating-footer {
+  border-top: 0;
+}
+
+.floating-dialog[data-borderless][data-keyboard-focus] .workspace-control:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.floating-dialog[data-borderless][data-keyboard-focus] :where(.workspace-icon-button, .floating-body):focus-visible {
+  background: var(--workspace-wash);
+}
+
+@media (forced-colors: active) {
+  .floating-dialog[data-borderless][data-keyboard-focus] :where(.workspace-icon-button, .floating-body):focus-visible {
+    color: Highlight;
+  }
+}
+
 @media (min-width: 40rem) {
   .floating-dialog {
     --safe-top: max(1.25rem, env(safe-area-inset-top));

@@ -14,9 +14,9 @@ export function CaseNotes({ caseItem, onSaved }: {
   caseItem: Case;
   onSaved: (id: number, description: Case['description']) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [entry, setEntry] = useState<'keyboard' | 'pointer' | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
-  const [discard, setDiscard] = useState<'close' | 'read' | null>(null);
+  const [discard, setDiscard] = useState<{ close: boolean; keyboard: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const trigger = useRef<HTMLButtonElement>(null);
@@ -33,15 +33,15 @@ export function CaseNotes({ caseItem, onSaved }: {
     flushSync(() => {
       setDraft(null);
       setError('');
-      if (close) setIsOpen(false);
+      if (close) setEntry(null);
     });
     if (!close) editButton.current?.focus({ preventScroll: true });
   }
 
-  function dismiss(close: boolean) {
+  function dismiss(close: boolean, keyboard: boolean) {
     if (saving) return;
     if (dirty) {
-      setDiscard(close ? 'close' : 'read');
+      setDiscard({ close, keyboard });
     } else {
       finishEditing(close);
     }
@@ -70,7 +70,7 @@ export function CaseNotes({ caseItem, onSaved }: {
         type="button"
         aria-haspopup="dialog"
         aria-label={`${hasNotes ? 'Case Notes' : 'Add notes'} for ${caseItem.case_title}`}
-        onClick={() => setIsOpen(true)}
+        onClick={event => setEntry(event.detail === 0 ? 'keyboard' : 'pointer')}
         className={styles.notesPreview}
       >
         <FileText size={16} aria-hidden={true} className="shrink-0" />
@@ -84,13 +84,14 @@ export function CaseNotes({ caseItem, onSaved }: {
         </span>
         <ChevronRight size={16} aria-hidden={true} className="shrink-0" />
       </button>
-      {isOpen && (
+      {entry && (
         <FloatingDialog title="Case Notes" subtitle={caseItem.case_title}
-          returnFocus={trigger.current} onDismiss={() => dismiss(true)} busy={saving} error={error}
+          borderless initialKeyboardFocus={entry === 'keyboard'}
+          returnFocus={trigger.current} onDismiss={keyboard => dismiss(true, keyboard)} busy={saving} error={error}
           bodyLabel={isEditing ? undefined : 'Notes text'} focusBody={!isEditing}
           footer={isEditing ? (
             <>
-              <button type="button" onClick={() => dismiss(false)} disabled={saving}
+              <button type="button" onClick={event => dismiss(false, event.detail === 0)} disabled={saving}
                 className="workspace-control workspace-secondary">Cancel</button>
               <button type="submit" form={formId} disabled={saving || !dirty} className="workspace-control workspace-primary">
                 {saving ? 'Saving…' : 'Save'}
@@ -130,9 +131,12 @@ export function CaseNotes({ caseItem, onSaved }: {
       )}
       {discard && (
         <ConfirmationDialog title="Discard unsaved notes?" cancelLabel="Keep editing" confirmLabel="Discard changes"
-          onDismiss={() => setDiscard(null)} destructive onConfirm={() => {
+          borderless initialKeyboardFocus={discard.keyboard} onDismiss={() => {
             flushSync(() => setDiscard(null));
-            finishEditing(discard === 'close');
+            textarea.current?.focus({ preventScroll: true });
+          }} destructive onConfirm={() => {
+            flushSync(() => setDiscard(null));
+            finishEditing(discard.close);
           }}>
           <p>Your changes to these case notes will be lost.</p>
         </ConfirmationDialog>
