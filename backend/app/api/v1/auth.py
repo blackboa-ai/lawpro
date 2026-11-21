@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -32,7 +33,7 @@ def get_password_hash(password: str) -> str:
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def register(
+def register(
     user_in: UserCreate,
     db: Session = Depends(get_db)
 ) -> Any:
@@ -59,7 +60,11 @@ async def register(
     )
     
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email already registered")
     db.refresh(user)
     
     return UserRead(
@@ -113,7 +118,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 @router.post("/login", response_model=Token)
-async def login(
+def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ) -> Any:
@@ -159,7 +164,7 @@ async def login(
 
 
 @router.get("/me", response_model=UserRead)
-async def read_current_user(
+def read_current_user(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """Get current authenticated user."""
