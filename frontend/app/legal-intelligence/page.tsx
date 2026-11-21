@@ -381,7 +381,9 @@ function LegalHub() {
           <>
             {visibleItems.length === 0 && !loading ? (
               <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-slate-700">
-                {showingInternationalNews ? 'No news found.' : 'No legal updates found.'} Try a different search term or clear the filters.
+                {showingInternationalNews
+                  ? 'No news found. Try a different search term or clear the filters.'
+                  : 'No legal updates found. Try a different search term or clear the filters.'}
               </p>
             ) : (
               <ul role="list" className="space-y-2.5">
