@@ -303,7 +303,7 @@ function LegalHub() {
               aria-expanded={filterPanelOpen} aria-controls="legal-filter-panel" onClick={() => setFilterPanelOpen(open => !open)}>
               <SlidersHorizontal aria-hidden={true} size={15} /> Filters
             </button>
-            <FilterChip label="Court" placeholder="All courts" value={draft.court}
+            <FilterChip label="Court" placeholder="All courts" value={draft.court === internationalNews?.code ? '' : draft.court}
               options={standardCourts?.map(court => ({ value: court.code, label: court.name }))}
               onChange={event => selectFilter('court', event.target.value)} />
             <FilterChip label="Category" placeholder="All categories" value={draft.category}
