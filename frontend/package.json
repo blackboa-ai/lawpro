@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest",
+    "test": "npm run test:regressions",
     "test:regressions": "node tests/audit-regressions.cjs && node tests/legal-intelligence.cjs"
   },
   "dependencies": {
