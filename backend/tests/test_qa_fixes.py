@@ -99,3 +99,14 @@ def test_category_punctuation_does_not_allow_external_urls(client):
 def test_database_readiness_uses_disposable_session(client):
     assert client.get("/health").json()["status"] == "healthy"
     assert client.get("/ready").json()["status"] == "ready"
+
+
+def test_failed_login_throttle_is_bounded(client):
+    url = "/api/v1/auth/login"
+    data = {"username": "qa-rate-limit-unique@example.com", "password": "InvalidPassword123"}
+    for _ in range(8):
+        assert client.post(url, data=data).status_code == 401
+    limited = client.post(url, data=data)
+    assert limited.status_code == 429
+    assert limited.headers["Retry-After"] == "300"
+    assert limited.json()["detail"] == "Too many login attempts. Try again later."
