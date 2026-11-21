@@ -137,7 +137,7 @@ async function main() {
   const render = () => view(Page, hooks);
   const textOf = node => node?.props.children;
   const form = nodes => nodes.find(node => node.type === 'form');
-  const button = (nodes, label) => nodes.find(node => node.type === 'button' && textOf(node) === label);
+  const button = (nodes, label) => nodes.find(node => node.type === 'button' && (textOf(node) === label || node.props['aria-label'] === label));
   const hasText = (nodes, text) => nodes.some(node => typeof textOf(node) === 'string' && textOf(node).includes(text));
   const tick = async () => { hooks.flush(); await new Promise(resolve => setImmediate(resolve)); };
   const control = (nodes, label) => nodes.find(node => node.props['aria-label'] === label);
@@ -191,15 +191,21 @@ async function main() {
   assert.equal(legal.originalSourceUrl('https://example.org/work\\file'), null);
   const chip = (nodes, label) => nodes.find(node => node.type === 'select' && node.props['aria-label'] === label);
   for (const label of ['Court', 'Category']) {
-    const wrapper = nodes.find(node => node.type === 'label' && node.props.children[1].props['aria-label'] === label);
+    const wrapper = nodes.find(node => node.type === 'label' && node.props.children.at(-1).props['aria-label'] === label);
     assert.equal(wrapper.props.className, 'chip selectChip');
-    assert.equal(wrapper.props.children[0].props.className, 'truncate');
+    assert.ok(wrapper.props.children[0].props.className.includes('truncate'));
+    assert.ok(wrapper.props.children[1].props.className.includes('truncate'));
+    assert.ok(wrapper.props.children[1].props.children === (label === 'Court' ? 'Courts' : 'Categories'));
     assert.equal(wrapper.props['data-selected'], false);
     assert.equal(chip(nodes, label).props.disabled, false);
   }
   const css = fs.readFileSync(path.join(__dirname, '../app/legal-intelligence/legal-intelligence.module.css'), 'utf8');
   assert.match(css, /\.selectChip select\s*\{[^}]*appearance: none;[^}]*opacity: 0;/);
   assert.match(css, /@media \(max-width: 39\.999rem\)\s*\{\s*\.chipRow\s*\{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;/);
+  assert.match(css, /\.chipRow\s*\{[^}]*scrollbar-width: none;/);
+  assert.match(css, /\.chipRow::-webkit-scrollbar\s*\{\s*display: none;/);
+  assert.match(css, /\.chipLabelCompact\s*\{\s*display: inline;/);
+  assert.match(css, /\.chipRow \.selectChip\s*\{\s*max-inline-size: 6\.75rem;/);
   assert.match(css, /\.cardAction::after\s*\{[^}]*inset: 0;/);
   assert.match(css, /\.cardSource\s*\{[^}]*z-index: 1;/);
   assert.match(css, /\.hub :where\([^)]+\):focus-visible\s*\{[^}]*outline: 2px solid/);
@@ -207,6 +213,7 @@ async function main() {
   const newsButton = nodes.find(node => node.type === 'button' && node.props['aria-label'] === 'International News');
   assert.ok(newsButton);
   assert.equal(newsButton.props['aria-pressed'], false);
+  assert.equal(newsButton.props.children[1].props.children, 'Intl News');
   assert.ok(!chip(nodes, 'Court').props.children.some(option => option?.props?.children === 'International News'));
   newsButton.props.onClick();
   nodes = render();
