@@ -18,7 +18,7 @@ class ResearchQuery(BaseModel):
 
     q: str | None = Field(default=None, max_length=200, pattern=r"^[^\x00-\x1f\x7f]+$")
     court: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,50}$")
-    category: str | None = Field(default=None, min_length=1, max_length=80)
+    category: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z &(),./-]{0,79}$")
     date_from: date | None = None
     date_to: date | None = None
     limit: int = Field(default=10, ge=1, le=25)
