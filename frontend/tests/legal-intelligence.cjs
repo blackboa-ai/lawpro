@@ -199,6 +199,7 @@ async function main() {
   }
   const css = fs.readFileSync(path.join(__dirname, '../app/legal-intelligence/legal-intelligence.module.css'), 'utf8');
   assert.match(css, /\.selectChip select\s*\{[^}]*appearance: none;[^}]*opacity: 0;/);
+  assert.match(css, /@media \(max-width: 39\.999rem\)\s*\{\s*\.chipRow\s*\{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;/);
   assert.match(css, /\.cardAction::after\s*\{[^}]*inset: 0;/);
   assert.match(css, /\.cardSource\s*\{[^}]*z-index: 1;/);
   assert.match(css, /\.hub :where\([^)]+\):focus-visible\s*\{[^}]*outline: 2px solid/);
@@ -211,6 +212,12 @@ async function main() {
   nodes = render();
   assert.equal(chip(nodes, 'Court').props.value, '');
   assert.equal(nodes.find(node => node.props['aria-label'] === 'International News').props['aria-pressed'], true);
+  assert.equal(nodes.some(node => node.type === 'h2' && node.props.children === 'Legal Updates'), false);
+  const hiddenNewsHeading = nodes.find(node => node.type === 'h2' && node.props.id === 'updates-title');
+  assert.equal(hiddenNewsHeading.props.className, 'sr-only');
+  assert.equal(hiddenNewsHeading.props.children, 'International news results');
+  const row = nodes.find(node => node.props['aria-label'] === 'Research filters; swipe horizontally on mobile to see more');
+  assert.equal(row.props.tabIndex, 0);
   await tick();
   assert.equal(new URLSearchParams(calls.at(-1).endpoint.split('?')[1]).get('court'), 'international-news');
   nodes.find(node => node.props['aria-label'] === 'International News').props.onClick();
@@ -218,6 +225,7 @@ async function main() {
   await tick();
   assert.equal(chip(nodes, 'Court').props.value, '');
   assert.equal(new URLSearchParams(calls.at(-1).endpoint.split('?')[1]).get('court'), null);
+  assert.equal(nodes.find(node => node.props.id === 'updates-title').props.children, 'Legal Updates');
   chip(nodes, 'Court').props.onChange({ target: { value: 'sc' } });
   chip(render(), 'Category').props.onChange({ target: { value: 'Criminal' } });
   editQuery(render(), '  bail  ');
