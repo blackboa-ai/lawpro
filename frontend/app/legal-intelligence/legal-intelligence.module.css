@@ -400,12 +400,24 @@
   border-block-start: 1px solid var(--line);
 }
 
+/* Let long PDF-extracted lines flow naturally at mobile widths. */
 .sourceText p {
-  margin-block-start: 0.875rem;
+  margin-block-start: 0.7rem;
   color: #28394e;
   font-size: 1rem;
-  line-height: 1.75;
-  white-space: pre-wrap;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.sourceText p[data-kind='heading'] {
+  margin-block-start: 1.125rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.sourceText p[data-kind='numbered'] {
+  margin-block-start: 0.875rem;
 }
 
 @media (hover: hover) {
