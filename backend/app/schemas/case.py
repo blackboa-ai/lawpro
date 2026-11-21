@@ -45,6 +45,7 @@ class CaseUpdate(BaseModel):
     status: Optional[CaseStatus] = Field(None)
     hearing_notes: Optional[str] = Field(None, max_length=10000)
     expected_hearing_date: Optional[date] = None
+    expected_updated_at: Optional[datetime] = None
 
 
 class HearingHistoryRead(BaseModel):
