@@ -37,7 +37,7 @@ def _apply_case_updates(case: Case, update_data: dict) -> None:
 
 
 @router.post("/", response_model=CaseRead, status_code=status.HTTP_201_CREATED)
-async def create_case(
+def create_case(
     case_in: CaseCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -66,7 +66,7 @@ async def create_case(
 
 
 @router.get("/", response_model=List[CaseRead])
-async def list_cases(
+def list_cases(
     response: Response,
     offset: int = Query(0, ge=0),
     limit: int | None = Query(None, ge=1, le=200),
@@ -97,7 +97,7 @@ async def list_cases(
 
 
 @router.get("/dashboard", response_model=DashboardStats)
-async def get_dashboard_stats(
+def get_dashboard_stats(
     today: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -117,7 +117,7 @@ async def get_dashboard_stats(
 
 
 @router.get("/{case_id}", response_model=CaseRead)
-async def get_case(
+def get_case(
     case_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -137,7 +137,7 @@ async def get_case(
 
 
 @router.put("/{case_id}", response_model=CaseRead)
-async def update_case(
+def update_case(
     case_id: int,
     case_in: CaseUpdate,
     db: Session = Depends(get_db),
@@ -184,12 +184,12 @@ async def update_case(
 
 
 @router.get("/{case_id}/hearing-history", response_model=List[HearingHistoryRead])
-async def get_hearing_history(
+def get_hearing_history(
     case_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> Any:
-    case = await get_case(case_id, db, current_user)
+    case = get_case(case_id, db, current_user)
     return db.scalars(
         select(HearingHistory)
         .where(HearingHistory.case_id == case.id)
@@ -198,7 +198,7 @@ async def get_hearing_history(
 
 
 @router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_case(
+def delete_case(
     case_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
