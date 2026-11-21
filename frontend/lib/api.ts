@@ -2,7 +2,9 @@
 
 import type { CaseUpdate, HearingHistoryEntry } from '@/types';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_URL = process.env.NEXT_PUBLIC_LAWPRO_PREVIEW_PROXY === '1'
+  ? ''
+  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface AuthResponse {
   access_token: string;

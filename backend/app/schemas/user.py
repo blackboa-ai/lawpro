@@ -10,8 +10,8 @@ class UserBase(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
     
-    email: EmailStr
-    full_name: Optional[str] = None
+    email: EmailStr = Field(max_length=255)
+    full_name: Optional[str] = Field(None, max_length=255)
 
 
 class UserCreate(UserBase):
@@ -40,7 +40,7 @@ class UserUpdate(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
     
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(None, max_length=255)
     role: Optional[str] = None
     is_active: Optional[bool] = None
 

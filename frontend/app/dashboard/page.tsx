@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Calendar, CalendarDays, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Clock, Download,
   Edit, FileText, Gavel, LogOut, Plus, Search, Trash2,
@@ -42,7 +43,11 @@ type CaseDialog =
 const pageSize = 25;
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/login');
+  }, [authLoading, isAuthenticated, router]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,7 +186,7 @@ export default function DashboardPage() {
 
   const handleStatusChange = async (item: Case, status: CaseStatus) => {
     try {
-      const updated = await updateCase(item.id, { status });
+      const updated = await updateCase(item.id, { status, expected_updated_at: item.updated_at });
       adjustStats(item, updated);
       setCases(current => current.map(caseItem => caseItem.id === item.id ? updated : caseItem));
       fetchData(true);
@@ -203,6 +208,9 @@ export default function DashboardPage() {
 
   const closeDialog = () => setModal(null);
   const calendarDate = modal?.kind === 'calendar' ? modal.item.next_hearing_date : null;
+
+  if (authLoading) return <p role="status">Checking your session…</p>;
+  if (!isAuthenticated) return null;
 
   return (
     <div className={`${styles.dashboard} workspace-focus`}>

@@ -48,7 +48,7 @@ export function CaseEditor({ caseItem, trigger, onClose, onSaved }: {
       setError('Enter a case title.');
       return;
     }
-    const changes: CaseUpdate = {};
+    const changes: CaseUpdate = { expected_updated_at: caseItem.updated_at };
     if (title !== caseItem.case_title) changes.case_title = title;
     for (const field of ['case_number', 'court_name', 'description'] as const) {
       const value = String(form.get(field) ?? '').trim() || null;
@@ -62,7 +62,7 @@ export function CaseEditor({ caseItem, trigger, onClose, onSaved }: {
       const notes = String(form.get('hearing_notes') ?? '').trim();
       if (notes) changes.hearing_notes = notes;
     }
-    if (Object.keys(changes).length === 0) {
+    if (Object.keys(changes).length === 1) {
       onClose();
       return;
     }

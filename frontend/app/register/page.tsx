@@ -46,6 +46,7 @@ export default function RegisterPage() {
             type="text"
             id="fullName"
             name="fullName"
+            maxLength={255}
             autoComplete="name"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}

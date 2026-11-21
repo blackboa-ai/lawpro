@@ -245,7 +245,7 @@ function LegalHub() {
 
   function selectFilter(field: 'court' | 'category', value: string) {
     edit(field, value);
-    apply({ ...selection.filters, [field]: value });
+    apply({ ...draft, [field]: value });
   }
 
   function clearSearch() {
@@ -263,7 +263,7 @@ function LegalHub() {
 
   function clearFilters() {
     setDraft({ ...emptyFilters, q: draft.q });
-    apply({ ...emptyFilters, q: selection.filters.q });
+    apply({ ...emptyFilters, q: draft.q });
     setFormError('');
   }
 

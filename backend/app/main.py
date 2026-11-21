@@ -2,12 +2,17 @@
 
 from contextlib import asynccontextmanager
 
+from sqlalchemy import text as sql_text
+from sqlalchemy.orm import Session
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import auth, cases, legal_intelligence
 from app.core.config import settings
+from app.db import get_db
+from fastapi import Depends, HTTPException
 from app.legal_intelligence import AggregatorError, LegalAggregator
 
 
@@ -67,3 +72,13 @@ async def legal_source_error(_request: Request, error: AggregatorError):
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "lawpro-backend"}
+
+
+@app.get("/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    """Check PostgreSQL availability separately from the liveness endpoint."""
+    try:
+        db.execute(sql_text("SELECT 1"))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    return {"status": "ready", "service": "lawpro-backend"}

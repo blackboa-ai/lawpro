@@ -50,6 +50,7 @@ export interface CaseUpdate {
   status?: CaseStatus;
   hearing_notes?: string;
   expected_hearing_date?: string | null;
+  expected_updated_at?: string;
 }
 
 export interface HearingHistoryEntry {

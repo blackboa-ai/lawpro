@@ -1,6 +1,6 @@
 """Case management endpoints."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -37,7 +37,7 @@ def _apply_case_updates(case: Case, update_data: dict) -> None:
 
 
 @router.post("/", response_model=CaseRead, status_code=status.HTTP_201_CREATED)
-async def create_case(
+def create_case(
     case_in: CaseCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -66,7 +66,7 @@ async def create_case(
 
 
 @router.get("/", response_model=List[CaseRead])
-async def list_cases(
+def list_cases(
     response: Response,
     offset: int = Query(0, ge=0),
     limit: int | None = Query(None, ge=1, le=200),
@@ -97,7 +97,7 @@ async def list_cases(
 
 
 @router.get("/dashboard", response_model=DashboardStats)
-async def get_dashboard_stats(
+def get_dashboard_stats(
     today: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -117,7 +117,7 @@ async def get_dashboard_stats(
 
 
 @router.get("/{case_id}", response_model=CaseRead)
-async def get_case(
+def get_case(
     case_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -137,7 +137,7 @@ async def get_case(
 
 
 @router.put("/{case_id}", response_model=CaseRead)
-async def update_case(
+def update_case(
     case_id: int,
     case_in: CaseUpdate,
     db: Session = Depends(get_db),
@@ -160,6 +160,9 @@ async def update_case(
     hearing_notes = (update_data.pop("hearing_notes", None) or "").strip() or None
     previous_date = case.next_hearing_date
     expected_date = update_data.pop("expected_hearing_date", previous_date)
+    expected_updated_at = update_data.pop("expected_updated_at", None)
+    if expected_updated_at is not None and expected_updated_at != case.updated_at:
+        raise HTTPException(status_code=409, detail="This case was updated elsewhere. Refresh the dashboard and review the latest changes before saving.")
     if "next_hearing_date" in update_data and expected_date != previous_date:
         raise HTTPException(status_code=409, detail="The hearing date changed. Refresh the dashboard before saving.")
     date_changed = "next_hearing_date" in update_data and update_data["next_hearing_date"] != previous_date
@@ -181,12 +184,12 @@ async def update_case(
 
 
 @router.get("/{case_id}/hearing-history", response_model=List[HearingHistoryRead])
-async def get_hearing_history(
+def get_hearing_history(
     case_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> Any:
-    case = await get_case(case_id, db, current_user)
+    case = get_case(case_id, db, current_user)
     return db.scalars(
         select(HearingHistory)
         .where(HearingHistory.case_id == case.id)
@@ -195,7 +198,7 @@ async def get_hearing_history(
 
 
 @router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_case(
+def delete_case(
     case_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
