@@ -203,6 +203,8 @@ function LegalHub() {
   const filters = useResearchRequest('filters', getLegalFilters);
   const searching = Boolean(draft.q.trim());
   const options = filters.state.status === 'ready' ? filters.state.data : null;
+  const internationalNews = options?.courts.find(court => /international.*news/i.test(court.name));
+  const standardCourts = options?.courts.filter(court => court.code !== internationalNews?.code);
   const loading = results.state.status === 'loading';
   const page = results.state.status === 'ready' ? results.state.data : loading ? results.previous : null;
   const searchItems = page && sort === 'newest'
@@ -301,12 +303,19 @@ function LegalHub() {
               aria-expanded={filterPanelOpen} aria-controls="legal-filter-panel" onClick={() => setFilterPanelOpen(open => !open)}>
               <SlidersHorizontal aria-hidden={true} size={15} /> Filters
             </button>
-            <FilterChip label="Court" placeholder="All courts" value={draft.court}
-              options={options?.courts.map(court => ({ value: court.code, label: court.name }))}
+            <FilterChip label="Court" placeholder="All courts" value={draft.court === internationalNews?.code ? '' : draft.court}
+              options={standardCourts?.map(court => ({ value: court.code, label: court.name }))}
               onChange={event => selectFilter('court', event.target.value)} />
             <FilterChip label="Category" placeholder="All categories" value={draft.category}
               options={options?.categories.map(category => ({ value: category.name, label: category.name }))}
               onChange={event => selectFilter('category', event.target.value)} />
+            {internationalNews && <button type="button" aria-label="International News"
+              aria-pressed={draft.court === internationalNews.code}
+              data-selected={draft.court === internationalNews.code}
+              className={`${styles.chip} ${styles.newsChip}`}
+              onClick={() => selectFilter('court', draft.court === internationalNews.code ? '' : internationalNews.code)}>
+              International News
+            </button>}
             {activeFilters && <button type="button" onClick={clearFilters} className={styles.clearFilters}>Clear filters</button>}
           </div>
 

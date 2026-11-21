@@ -93,7 +93,7 @@ async function main() {
         calls.push({ endpoint, ...options });
         const url = new URL(endpoint, 'https://lawpro.example');
         if (url.pathname.endsWith('/filters')) {
-          return { courts: [{ code: 'sc', name: 'Supreme Court of India' }], categories: [{ name: 'Criminal' }] };
+          return { courts: [{ code: 'sc', name: 'Supreme Court of India' }, { code: 'international-news', name: 'International News' }], categories: [{ name: 'Criminal' }] };
         }
         const detail = fixture.find(item => url.pathname.endsWith(`/${item.id}`));
         if (detail) {
@@ -202,6 +202,22 @@ async function main() {
   assert.match(css, /\.cardAction::after\s*\{[^}]*inset: 0;/);
   assert.match(css, /\.cardSource\s*\{[^}]*z-index: 1;/);
   assert.match(css, /\.hub :where\([^)]+\):focus-visible\s*\{[^}]*outline: 2px solid/);
+  // International News is a dedicated, accessible filter next to Category.
+  const newsButton = nodes.find(node => node.type === 'button' && node.props['aria-label'] === 'International News');
+  assert.ok(newsButton);
+  assert.equal(newsButton.props['aria-pressed'], false);
+  assert.ok(!chip(nodes, 'Court').props.children.some(option => option?.props?.children === 'International News'));
+  newsButton.props.onClick();
+  nodes = render();
+  assert.equal(chip(nodes, 'Court').props.value, '');
+  assert.equal(nodes.find(node => node.props['aria-label'] === 'International News').props['aria-pressed'], true);
+  await tick();
+  assert.equal(new URLSearchParams(calls.at(-1).endpoint.split('?')[1]).get('court'), 'international-news');
+  nodes.find(node => node.props['aria-label'] === 'International News').props.onClick();
+  nodes = render();
+  await tick();
+  assert.equal(chip(nodes, 'Court').props.value, '');
+  assert.equal(new URLSearchParams(calls.at(-1).endpoint.split('?')[1]).get('court'), null);
   chip(nodes, 'Court').props.onChange({ target: { value: 'sc' } });
   chip(render(), 'Category').props.onChange({ target: { value: 'Criminal' } });
   editQuery(render(), '  bail  ');
