@@ -16,7 +16,7 @@ jobs:
       run:
         working-directory: backend
     env:
-      DATABASE_URL: "sqlite:///:memory:"
+      DATABASE_URL: "postgresql://127.0.0.1:65432/qa_never_connect"
       FRONTEND_HOST: "http://localhost:3000"
     steps:
       - uses: actions/checkout@v4
