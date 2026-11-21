@@ -52,8 +52,8 @@ class Case(Base):
     filing_date = Column(Date, nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, server_default=text("'1970-01-01 00:00:00'"), nullable=False)
-    updated_at = Column(DateTime, server_default=text("'1970-01-01 00:00:00'"), nullable=False)
+    created_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), nullable=False)
+    updated_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"), nullable=False)
 
 
 class HearingHistory(Base):
