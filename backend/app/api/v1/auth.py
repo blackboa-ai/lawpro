@@ -4,7 +4,7 @@ import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.login_throttle import check as check_login_limit, failed as record_login_failure, keys_for, succeeded as clear_login_failures
 from app.db import get_db
 from app.models.user import User
 from app.schemas import Token, UserCreate, UserRead
@@ -119,12 +120,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @router.post("/login", response_model=Token)
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ) -> Any:
     """Login endpoint returning JWT token."""
     if len(form_data.password.encode("utf-8")) > 72:
         raise HTTPException(status_code=422, detail="Password must be at most 72 UTF-8 bytes")
+    keys = keys_for(request.client.host if request.client else 'unknown', form_data.username)
+    check_login_limit(keys)
     # Find user by email
     result = db.execute(
         select(User).where(User.email == form_data.username)
@@ -132,6 +136,7 @@ def login(
     user = result.scalar_one_or_none()
     
     if not user:
+        record_login_failure(keys)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -139,6 +144,7 @@ def login(
         )
     
     if not verify_password(form_data.password, user.password_hash):
+        record_login_failure(keys)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -147,12 +153,14 @@ def login(
     
     # Check if user is active before issuing token
     if not user.is_active:
+        record_login_failure(keys)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    clear_login_failures(keys[0])
     # Create JWT token
     to_encode = {"sub": str(user.id), "email": user.email, "role": user.role, "full_name": user.full_name, "is_active": user.is_active}
     expire = datetime.now(timezone.utc) + timedelta(
