@@ -9,9 +9,9 @@ const source = fs.readFileSync(path.join(__dirname, '../lib/legalText.ts'), 'utf
 const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const exports = {};
-vm.runInNewContext(code, { exports });
-const { formatLegalText } = exports;
+const moduleExports = {};
+vm.runInNewContext(code, { exports: moduleExports });
+const { formatLegalText } = moduleExports;
 
 function blocks(input) {
   return Array.from(formatLegalText(input), block => ({ kind: block.kind, text: block.text }));
