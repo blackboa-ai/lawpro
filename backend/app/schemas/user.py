@@ -10,7 +10,7 @@ class UserBase(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
     
-    email: EmailStr
+    email: EmailStr = Field(max_length=255)
     full_name: Optional[str] = Field(None, max_length=255)
 
 
