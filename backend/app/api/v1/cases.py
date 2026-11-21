@@ -1,6 +1,6 @@
 """Case management endpoints."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -160,6 +160,9 @@ async def update_case(
     hearing_notes = (update_data.pop("hearing_notes", None) or "").strip() or None
     previous_date = case.next_hearing_date
     expected_date = update_data.pop("expected_hearing_date", previous_date)
+    expected_updated_at = update_data.pop("expected_updated_at", None)
+    if expected_updated_at is not None and expected_updated_at != case.updated_at:
+        raise HTTPException(status_code=409, detail="This case was updated elsewhere. Refresh the dashboard and review the latest changes before saving.")
     if "next_hearing_date" in update_data and expected_date != previous_date:
         raise HTTPException(status_code=409, detail="The hearing date changed. Refresh the dashboard before saving.")
     date_changed = "next_hearing_date" in update_data and update_data["next_hearing_date"] != previous_date
