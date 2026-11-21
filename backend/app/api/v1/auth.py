@@ -149,7 +149,7 @@ async def login(
         )
     
     # Create JWT token
-    to_encode = {"sub": str(user.id), "email": user.email, "role": user.role}
+    to_encode = {"sub": str(user.id), "email": user.email, "role": user.role, "full_name": user.full_name, "is_active": user.is_active}
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
