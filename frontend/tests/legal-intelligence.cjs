@@ -122,6 +122,7 @@ async function main() {
     'next/navigation': { useRouter: () => router },
     '@/context/AuthContext': auth,
     '@/lib/legalIntelligence': legal,
+    '@/lib/legalText': load('lib/legalText.ts', {}),
     '../FloatingDialog': { FloatingDialog: props => ({
       type: 'dialog',
       props: { ...props, children: [props.header, props.children] },
@@ -242,8 +243,11 @@ async function main() {
   await tick();
   nodes = render();
   const text = nodes.filter(node => node.type === 'p').map(textOf);
-  assert.ok(text.includes('Fixture reader text\n  1. First order'));
-  assert.ok(text.includes('  2. Second order\nSigned.'));
+  assert.ok(text.includes('Fixture reader text'));
+  assert.ok(text.includes('1. First order'));
+  assert.ok(text.includes('2. Second order'));
+  assert.ok(text.includes('Signed.'));
+  assert.ok(!text.some(value => typeof value === 'string' && value.includes('\n')));
   closeReader(nodes);
   nodes = render();
   assert.ok(nodes.some(node => Array.isArray(textOf(node)) && textOf(node).join('') === 'Page 2'));

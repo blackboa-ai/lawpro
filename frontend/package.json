@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "npm run test:regressions",
-    "test:regressions": "node tests/audit-regressions.cjs && node tests/legal-intelligence.cjs"
+    "test:regressions": "node tests/audit-regressions.cjs && node tests/legal-text.cjs && node tests/legal-intelligence.cjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.5",
