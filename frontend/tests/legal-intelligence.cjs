@@ -209,7 +209,7 @@ async function main() {
   assert.ok(!chip(nodes, 'Court').props.children.some(option => option?.props?.children === 'International News'));
   newsButton.props.onClick();
   nodes = render();
-  assert.equal(chip(nodes, 'Court').props.value, 'international-news');
+  assert.equal(chip(nodes, 'Court').props.value, '');
   assert.equal(nodes.find(node => node.props['aria-label'] === 'International News').props['aria-pressed'], true);
   await tick();
   assert.equal(new URLSearchParams(calls.at(-1).endpoint.split('?')[1]).get('court'), 'international-news');
