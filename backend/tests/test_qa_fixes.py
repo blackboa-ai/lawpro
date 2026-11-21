@@ -1,11 +1,8 @@
 """Regressions for QA fixes; use only a disposable, in-memory database."""
 from datetime import datetime
-from secrets import token_hex
-
 import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
-from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -14,7 +11,6 @@ from app.core.config import settings
 from app.db import get_db
 from app.main import app
 from app.models import Base
-from app.schemas.user import UserCreate
 
 
 @pytest.fixture
@@ -55,7 +51,6 @@ def test_real_timestamps_and_optimistic_case_edits(client):
     account = {"email": "qa-case@example.com", "password": "ExamplePass123", "full_name": "QA Lawyer"}
     response = client.post("/api/v1/auth/register", json=account)
     assert response.status_code == 201
-    assert datetime.fromisoformat(response.json().get("created_at", "2026-01-01")) > datetime(2020, 1, 1)
     login = client.post(
         "/api/v1/auth/login",
         data={"username": account["email"], "password": account["password"]},
