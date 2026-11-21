@@ -7,7 +7,7 @@ Maps to the cases table. The API uses snake_case field names:
 - description: str
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -53,7 +53,7 @@ class Case(Base):
     
     # Timestamps
     created_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), nullable=False)
-    updated_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"), nullable=False)
+    updated_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
 
 
 class HearingHistory(Base):
