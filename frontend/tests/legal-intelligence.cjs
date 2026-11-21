@@ -191,7 +191,7 @@ async function main() {
   assert.equal(legal.originalSourceUrl('https://example.org/work\\file'), null);
   const chip = (nodes, label) => nodes.find(node => node.type === 'select' && node.props['aria-label'] === label);
   for (const label of ['Court', 'Category']) {
-    const wrapper = nodes.find(node => node.type === 'label' && node.props.children[1].props['aria-label'] === label);
+    const wrapper = nodes.find(node => node.type === 'label' && node.props.children.at(-1).props['aria-label'] === label);
     assert.equal(wrapper.props.className, 'chip selectChip');
     assert.ok(wrapper.props.children[0].props.className.includes('truncate'));
     assert.ok(wrapper.props.children[1].props.className.includes('truncate'));
