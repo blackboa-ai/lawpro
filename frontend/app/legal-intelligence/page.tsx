@@ -205,6 +205,7 @@ function LegalHub() {
   const options = filters.state.status === 'ready' ? filters.state.data : null;
   const internationalNews = options?.courts.find(court => /international.*news/i.test(court.name));
   const standardCourts = options?.courts.filter(court => court.code !== internationalNews?.code);
+  const showingInternationalNews = Boolean(internationalNews && selection.filters.court === internationalNews.code);
   const loading = results.state.status === 'loading';
   const page = results.state.status === 'ready' ? results.state.data : loading ? results.previous : null;
   const searchItems = page && sort === 'newest'
@@ -298,7 +299,7 @@ function LegalHub() {
             </button>
           </div>
 
-          <div className={styles.chipRow}>
+          <div className={styles.chipRow} role="group" aria-label="Research filters; swipe horizontally on mobile to see more" tabIndex={0}>
             <button type="button" className={styles.chip} data-selected={filterPanelOpen || (hasDates && !searching)}
               aria-expanded={filterPanelOpen} aria-controls="legal-filter-panel" onClick={() => setFilterPanelOpen(open => !open)}>
               <SlidersHorizontal aria-hidden={true} size={15} /> Filters
@@ -347,10 +348,13 @@ function LegalHub() {
         </form>
       </div>
 
-      {loading && <p role="status" className="text-sm text-slate-600">Loading legal updates…</p>}
+      {loading && <p role="status" className="text-sm text-slate-600">{showingInternationalNews ? 'Loading news…' : 'Loading legal updates…'}</p>}
       <section aria-labelledby="updates-title" aria-busy={loading} className="min-w-0 space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <h2 id="updates-title" ref={resultsHeading} tabIndex={-1} className="scroll-mt-4 text-lg font-semibold tracking-tight text-slate-950">Legal Updates</h2>
+          <h2 id="updates-title" ref={resultsHeading} tabIndex={-1}
+            className={showingInternationalNews ? 'sr-only' : 'scroll-mt-4 text-lg font-semibold tracking-tight text-slate-950'}>
+            {showingInternationalNews ? 'International news results' : 'Legal Updates'}
+          </h2>
           {searchResults && page && <select aria-label="Sort loaded search results" className={styles.sort}
             value={sort} disabled={loading} onChange={event => { setSort(event.target.value); setSelection(current => ({ ...current, offset: 0 })); }}>
             <option value="relevance">Relevance</option>
@@ -369,13 +373,17 @@ function LegalHub() {
           </div>
         )}
         {results.state.status === 'error' && (
-          <RequestError message="Legal updates couldn’t load. The source may be warming up. Try again shortly." retry={results.retry} />
+          <RequestError message={showingInternationalNews
+            ? "News couldn’t load. The source may be warming up. Try again shortly."
+            : "Legal updates couldn’t load. The source may be warming up. Try again shortly."} retry={results.retry} />
         )}
         {visibleItems && (
           <>
             {visibleItems.length === 0 && !loading ? (
               <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-slate-700">
-                No legal updates found. Try a different search term or clear the filters.
+                {showingInternationalNews
+                  ? 'No news found. Try a different search term or clear the filters.'
+                  : 'No legal updates found. Try a different search term or clear the filters.'}
               </p>
             ) : (
               <ul role="list" className="space-y-2.5">
