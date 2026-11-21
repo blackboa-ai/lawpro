@@ -1,6 +1,6 @@
 """User model."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Enum, text
@@ -29,7 +29,7 @@ class User(Base):
     role = Column(String(20), server_default=text("'advocate'"), nullable=False)
     is_active = Column(Boolean(), server_default=text("true"), nullable=False)
     created_at = Column(DateTime(), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
-    updated_at = Column(DateTime(), server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"), nullable=False)
+    updated_at = Column(DateTime(), server_default=text("CURRENT_TIMESTAMP"), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email})>"
