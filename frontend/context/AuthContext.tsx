@@ -31,6 +31,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    const checkSession = () => {
+      if (!getDecodedToken()) {
+        setUser(null);
+        router.replace('/login');
+      }
+    };
+    const timer = window.setInterval(checkSession, 10_000);
+    const onVisibility = () => { if (document.visibilityState === 'visible') checkSession(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [user, router]);
+
   const login = (token: string) => {
     localStorage.setItem('token', token);
     const decoded = getDecodedToken();
