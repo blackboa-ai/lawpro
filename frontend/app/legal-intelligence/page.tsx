@@ -178,9 +178,11 @@ function FilterChip({ label, value, placeholder, options, onChange }: {
   onChange: (event: ChangeEvent<HTMLSelectElement>) => void;
 }) {
   const selectedLabel = options?.find(option => option.value === value)?.label ?? value;
+  const mobilePlaceholder = label === 'Court' ? 'Courts' : label === 'Category' ? 'Categories' : placeholder;
   return (
     <label className={`${styles.chip} ${styles.selectChip}`} data-selected={Boolean(value)}>
-      <span aria-hidden="true" className="truncate">{selectedLabel || placeholder}</span>
+      <span aria-hidden="true" className={`${styles.chipLabelFull} truncate`}>{selectedLabel || placeholder}</span>
+      <span aria-hidden="true" className={`${styles.chipLabelCompact} truncate`}>{selectedLabel || mobilePlaceholder}</span>
       <select aria-label={label} value={value} disabled={!options} onChange={onChange}>
         <option value="">{placeholder}</option>
         {options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -315,9 +317,13 @@ function LegalHub() {
               data-selected={draft.court === internationalNews.code}
               className={`${styles.chip} ${styles.newsChip}`}
               onClick={() => selectFilter('court', draft.court === internationalNews.code ? '' : internationalNews.code)}>
-              International News
+              <span className={styles.chipLabelFull}>International News</span>
+              <span className={styles.chipLabelCompact}>Intl News</span>
             </button>}
-            {activeFilters && <button type="button" onClick={clearFilters} className={styles.clearFilters}>Clear filters</button>}
+            {activeFilters && <button type="button" aria-label="Clear filters" onClick={clearFilters} className={styles.clearFilters}>
+              <span className={styles.chipLabelFull}>Clear filters</span>
+              <span className={styles.chipLabelCompact}>Clear</span>
+            </button>}
           </div>
 
           <div id="legal-filter-panel" className={styles.filterPanel} hidden={!filterPanelOpen}>
