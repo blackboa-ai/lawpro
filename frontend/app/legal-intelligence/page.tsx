@@ -9,6 +9,7 @@ import {
   getLegalDetail, getLegalFilters, getLegalUpdates, originalSourceUrl,
 } from '@/lib/legalIntelligence';
 import type { LegalItem } from '@/lib/legalIntelligence';
+import { formatLegalText } from '@/lib/legalText';
 import { FloatingDialog } from '../FloatingDialog';
 import styles from './legal-intelligence.module.css';
 
@@ -124,12 +125,12 @@ function RequestError({ message, retry }: { message: string; retry: () => void }
 }
 
 function SourceText({ title, text }: { title: string; text: string }) {
-  const paragraphs = text.replace(/\r\n?/g, '\n').split(/\n(?:[^\S\n]*\n)+/);
+  const blocks = formatLegalText(text);
   return (
     <section aria-labelledby="reader-text-title" className={styles.sourceText}>
       <h3 id="reader-text-title" className="text-lg font-semibold tracking-tight text-slate-950">{title}</h3>
-      {paragraphs.filter(paragraph => paragraph.trim()).map((paragraph, index) => (
-        <p key={index}>{paragraph}</p>
+      {blocks.map((block, index) => (
+        <p key={index} data-kind={block.kind}>{block.text}</p>
       ))}
     </section>
   );
