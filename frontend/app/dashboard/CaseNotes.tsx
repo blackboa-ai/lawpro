@@ -53,7 +53,7 @@ export function CaseNotes({ caseItem, onSaved }: {
     setSaving(true);
     setError('');
     try {
-      const updated = await updateCase(caseItem.id, { description: draft.trim() ? draft : null });
+      const updated = await updateCase(caseItem.id, { description: draft.trim() ? draft : null, expected_updated_at: caseItem.updated_at });
       onSaved(updated.id, updated.description);
       finishEditing(false);
     } catch (err) {
